@@ -21,3 +21,5 @@ export type Task = {
   updated_at: string;
   assignee?: { name: string } | null;
 };
+
+export type ActionResult = { ok: true } | { ok: false; error: string };

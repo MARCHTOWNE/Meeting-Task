@@ -1,41 +1,93 @@
-import { getSupabase } from "@/lib/supabase";
-import type { Task } from "@/lib/types";
 import { connection } from "next/server";
+import { ClipboardList } from "lucide-react";
+import { getSupabase } from "@/lib/supabase";
+import { STATUSES, STATUS_META, todayInMelbourne } from "@/lib/task-meta";
+import type { Member, Task } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
+import { TaskCard } from "@/components/tasks/task-card";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 
 export default async function TasksPage() {
   await connection();
   const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from("tasks")
-    .select("*, assignee:members(name)")
-    .order("created_at", { ascending: false });
 
-  if (error) {
-    return <p className="p-8 text-red-600">加载失败：{error.message}</p>;
+  const [tasksRes, membersRes] = await Promise.all([
+    supabase
+      .from("tasks")
+      .select("*, assignee:members(name)")
+      .order("created_at", { ascending: false }),
+    supabase.from("members").select("id, name, email").order("name"),
+  ]);
+
+  if (tasksRes.error) {
+    return (
+      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+        <p className="text-destructive">加载失败：{tasksRes.error.message}</p>
+      </main>
+    );
   }
 
-  const tasks = (data ?? []) as Task[];
+  const tasks = (tasksRes.data ?? []) as Task[];
+  const members = (membersRes.data ?? []) as Member[];
+  const today = todayInMelbourne();
 
   return (
-    <main className="mx-auto max-w-3xl p-8">
-      <h1 className="mb-6 text-2xl font-bold">任务</h1>
+    <main className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">任务</h1>
+          <p className="text-sm text-muted-foreground">
+            管理所有任务，包括手动创建和从会议中提取的任务。
+          </p>
+        </div>
+        <CreateTaskDialog members={members} />
+      </div>
+
+      <div className="grid grid-cols-3 gap-3 sm:gap-4">
+        {STATUSES.map((s) => {
+          const meta = STATUS_META[s];
+          const Icon = meta.icon;
+          const count = tasks.filter((t) => t.status === s).length;
+          return (
+            <Card key={s} className="gap-0 py-4">
+              <CardContent className="flex items-center justify-between px-4">
+                <div>
+                  <p className="text-xs text-muted-foreground sm:text-sm">{meta.label}</p>
+                  <p className="text-2xl font-semibold tabular-nums">{count}</p>
+                </div>
+                <Icon className={cn("hidden size-8 opacity-80 sm:block", meta.className)} />
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
       {tasks.length === 0 ? (
-        <p className="text-gray-500">还没有任务</p>
+        <Empty className="border bg-card">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ClipboardList />
+            </EmptyMedia>
+            <EmptyTitle>还没有任务</EmptyTitle>
+            <EmptyDescription>
+              点击右上角的「新建任务」添加第一条任务。
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <ul className="space-y-3">
+        <div className="space-y-3">
           {tasks.map((t) => (
-            <li key={t.id} className="rounded-lg border p-4">
-              <div className="flex items-center justify-between">
-                <span className="font-medium">{t.title}</span>
-                <span className="text-sm text-gray-500">{t.status}</span>
-              </div>
-              <div className="mt-1 text-sm text-gray-500">
-                负责人：{t.assignee?.name ?? "未分配"} · 截止：
-                {t.due_date ?? "无"} · 优先级：{t.priority}
-              </div>
-            </li>
+            <TaskCard key={t.id} task={t} today={today} />
           ))}
-        </ul>
+        </div>
       )}
     </main>
   );
