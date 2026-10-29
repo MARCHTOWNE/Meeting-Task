@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import type { TaskPriority, TaskStatus } from "@/lib/types";
+import { MAX_SUMMARY_LENGTH } from "./prompt";
 import type { AgentDataSource, AgentStep, Proposal } from "./types";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -13,8 +14,34 @@ function isValidDate(value: string) {
 }
 
 function normalize(text: string) {
-  return text.toLowerCase().replace(/\s+/g, "");
+  return text.toLowerCase().replace(/[\s\p{P}]+/gu, "");
 }
+
+/** 两个标题的相似度（0~1），用字符二元组的 Dice 系数计算，中英文都适用 */
+export function titleSimilarity(a: string, b: string) {
+  const bigrams = (s: string) => {
+    const t = normalize(s);
+    const out: string[] = [];
+    for (let i = 0; i < t.length - 1; i++) out.push(t.slice(i, i + 2));
+    return out;
+  };
+  const x = bigrams(a);
+  const y = bigrams(b);
+  if (x.length === 0 || y.length === 0) return normalize(a) === normalize(b) ? 1 : 0;
+  const pool = [...y];
+  let common = 0;
+  for (const g of x) {
+    const i = pool.indexOf(g);
+    if (i !== -1) {
+      common++;
+      pool.splice(i, 1);
+    }
+  }
+  return (2 * common) / (x.length + y.length);
+}
+
+/** 相似度超过这个值，就认为可能是同一件事 */
+const SIMILARITY_THRESHOLD = 0.6;
 
 /**
  * 创建 Agent 的工具。
@@ -27,6 +54,7 @@ export function createAgentTools(ds: AgentDataSource) {
   const steps: AgentStep[] = [];
   let members: Awaited<ReturnType<AgentDataSource["listMembers"]>> | null = null;
   let tasks: Awaited<ReturnType<AgentDataSource["listTasks"]>> | null = null;
+  let summary: string | null = null;
 
   const getMembers = async () => (members ??= await ds.listMembers());
   const getTasks = async () => (tasks ??= await ds.listTasks());
@@ -83,6 +111,10 @@ export function createAgentTools(ds: AgentDataSource) {
         due_date: z.string().nullable().describe("YYYY-MM-DD, or null if no deadline was mentioned"),
         priority: z.enum(["low", "medium", "high"]),
         source_quote: z.string().describe("Exact sentence from the transcript"),
+        is_distinct_from_existing: z
+          .boolean()
+          .nullable()
+          .describe("Set true only if you were warned about a similar task and it really is different work"),
       }),
       execute: async (input) => {
         if (proposals.length >= MAX_PROPOSALS) return reject("propose_create_task", "Too many proposals. Stop and write the summary.");
@@ -105,6 +137,26 @@ export function createAgentTools(ds: AgentDataSource) {
         }
         if (proposals.some((p) => p.kind === "create" && normalize(p.title) === normalize(title))) {
           return reject("propose_create_task", "You already proposed this task. Skip it.");
+        }
+
+        // 标题相似但不完全相同：可能是同一件事换了说法，提醒模型确认
+        if (!input.is_distinct_from_existing) {
+          const similar = (await getTasks()).find((t) => titleSimilarity(t.title, title) >= SIMILARITY_THRESHOLD);
+          if (similar) {
+            return reject(
+              "propose_create_task",
+              `Existing task "${similar.title}" (id ${similar.id}) looks like the same work. Use propose_update_task for it instead. If it really is different work, call again with is_distinct_from_existing: true.`
+            );
+          }
+          const similarProposal = proposals.find(
+            (p) => p.kind === "create" && titleSimilarity(p.title, title) >= SIMILARITY_THRESHOLD
+          );
+          if (similarProposal) {
+            return reject(
+              "propose_create_task",
+              `You already proposed a similar task "${similarProposal.kind === "create" ? similarProposal.title : ""}". Skip it.`
+            );
+          }
         }
 
         const id = nextId();
@@ -176,7 +228,29 @@ export function createAgentTools(ds: AgentDataSource) {
         return { ok: true, proposal_id: id };
       },
     }),
+
+    finish: tool({
+      description: "Finish the work with a short meeting summary. Call this once, after all proposals.",
+      inputSchema: z.object({
+        summary: z
+          .string()
+          .describe(`1-2 sentences, at most ${MAX_SUMMARY_LENGTH} characters, no task list`),
+      }),
+      execute: async ({ summary: text }) => {
+        const trimmed = text.trim();
+        if (!trimmed) return reject("finish", "summary must not be empty.");
+        if (trimmed.length > MAX_SUMMARY_LENGTH) {
+          return reject(
+            "finish",
+            `Summary is ${trimmed.length} characters, the limit is ${MAX_SUMMARY_LENGTH}. Shorten it to 1-2 sentences without listing tasks.`
+          );
+        }
+        summary = trimmed;
+        steps.push({ tool: "finish", summary: `完成，摘要 ${trimmed.length} 字` });
+        return { ok: true };
+      },
+    }),
   };
 
-  return { tools, proposals, steps };
+  return { tools, proposals, steps, getSummary: () => summary };
 }

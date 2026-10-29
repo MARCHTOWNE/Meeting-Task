@@ -1,6 +1,8 @@
 import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";
 import { extractTasks } from "./extract-tasks";
+import { buildCalendar } from "./prompt";
+import { titleSimilarity } from "./tools";
 import type { AgentDataSource } from "./types";
 
 const dataSource: AgentDataSource = {
@@ -69,6 +71,7 @@ const createInput = {
   due_date: "2026-10-30",
   priority: "medium",
   source_quote: "Alice：我周五前把访谈结论整理成文档。",
+  is_distinct_from_existing: null,
 };
 
 const updateInput = {
@@ -143,5 +146,55 @@ describe("extractTasks agent", () => {
 
     const result = await extractTasks({ model, modelName: "mock", dataSource, meeting });
     expect(result.proposals).toHaveLength(1);
+  });
+
+  it("uses the summary from finish, rejects long summaries and stops right after finish", async () => {
+    let calls = 0;
+    const base = scriptedModel([
+      [{ name: "finish", input: { summary: "很长的摘要".repeat(40) } }],
+      [{ name: "finish", input: { summary: "确认登录问题已修复，Alice 整理访谈结论。" } }],
+      "这一轮不应该被调用",
+    ]);
+    const model = new MockLanguageModelV4({
+      doGenerate: async (options) => {
+        calls++;
+        return base.doGenerate(options);
+      },
+    });
+
+    const result = await extractTasks({ model, modelName: "mock", dataSource, meeting });
+
+    expect(result.summary).toBe("确认登录问题已修复，Alice 整理访谈结论。");
+    expect(result.steps.filter((s) => s.tool === "finish" && s.rejected)).toHaveLength(1);
+    expect(calls).toBe(2);
+  });
+
+  it("warns about tasks that look like existing work, unless marked distinct", async () => {
+    const similar = { ...createInput, title: "修复登录页面样式" };
+    const model = scriptedModel([
+      [{ name: "propose_create_task", input: similar }],
+      [{ name: "propose_create_task", input: { ...similar, is_distinct_from_existing: true } }],
+      "总结",
+    ]);
+
+    const result = await extractTasks({ model, modelName: "mock", dataSource, meeting });
+
+    expect(result.steps[0]).toMatchObject({ tool: "propose_create_task", rejected: true });
+    expect(result.proposals).toHaveLength(1);
+  });
+});
+
+describe("helpers", () => {
+  it("builds a calendar so the model can look up relative dates", () => {
+    const calendar = buildCalendar("2026-10-29"); // 星期四
+    expect(calendar).toContain("2026-10-29 Thu (meeting day)");
+    expect(calendar).toContain("2026-10-30 Fri (this week)");
+    expect(calendar).toContain("2026-11-02 Mon (next week)");
+    expect(calendar).toContain("2026-11-09 Mon (in two weeks)");
+  });
+
+  it("scores similar titles higher than unrelated ones", () => {
+    expect(titleSimilarity("完善 README", "准备项目 README")).toBeGreaterThanOrEqual(0.6);
+    expect(titleSimilarity("整理访谈结论", "修复登录页面样式问题")).toBeLessThan(0.3);
   });
 });
