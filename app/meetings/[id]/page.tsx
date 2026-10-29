@@ -1,22 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { ArrowLeft, CalendarDays, FileText, ListTodo, Pencil, Sparkles } from "lucide-react";
+import { ArrowLeft, CalendarDays, FileText, ListTodo, Pencil } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
 import { formatDate, todayInMelbourne } from "@/lib/task-meta";
 import type { Meeting, Task } from "@/lib/types";
 import { DeleteMeetingButton } from "@/components/meetings/delete-meeting-button";
+import { ExtractPanel } from "@/components/meetings/extract-panel";
 import { TaskCard } from "@/components/tasks/task-card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function MeetingDetailPage({
   params,
@@ -89,26 +82,7 @@ export default async function MeetingDetailPage({
         </Card>
 
         <div className="space-y-4">
-          <Card className="border-dashed bg-gradient-to-br from-violet-50 to-sky-50 dark:from-violet-950/30 dark:to-sky-950/30">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Sparkles className="size-4 text-violet-600 dark:text-violet-400" />
-                AI 提取任务
-              </CardTitle>
-              <CardDescription>
-                AI 会读取会议记录，提议新建或更新任务，你确认后才会写入。
-              </CardDescription>
-              <CardAction>
-                <Button size="sm" disabled>
-                  <Sparkles />
-                  开始提取
-                </Button>
-              </CardAction>
-            </CardHeader>
-            <CardContent>
-              <Badge variant="outline">即将上线</Badge>
-            </CardContent>
-          </Card>
+          <ExtractPanel meetingId={meeting.id} />
 
           <div className="space-y-3">
             <h2 className="flex items-center gap-2 font-medium">
