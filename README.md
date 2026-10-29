@@ -10,6 +10,7 @@ Paste a meeting transcript, and an AI agent reads it, checks existing tasks and 
 
 - **Tasks** — create, update status, delete; priority, assignee, due date and overdue highlighting
 - **Meetings** — store meeting transcripts, view tasks linked to each meeting
+- **Members** — manage team members, see each person's todo / in-progress / done workload
 - **AI task extraction** *(in progress)* — tool-calling agent that proposes create/update actions for human review
 - Dark mode, responsive layout, accessible components
 
@@ -56,10 +57,12 @@ Create the database tables by running the SQL in [`supabase/schema.sql`](supabas
 app/
   tasks/          # Task list page + server actions
   meetings/       # Meeting list, create, detail, edit + server actions
+  members/        # Member list with workload stats + server actions
 components/
   ui/             # shadcn/ui components
   tasks/          # Task card, create-task dialog
   meetings/       # Meeting form, delete button
+  members/        # Member card, add / edit dialog
 lib/              # Supabase client, types, shared helpers
 supabase/         # Database schema
 ```
@@ -68,7 +71,7 @@ supabase/         # Database schema
 
 - [x] Task CRUD
 - [x] Meeting CRUD
-- [ ] Team member management
+- [x] Team member management
 - [ ] AI agent: extract task proposals from transcripts
 - [ ] Review & confirm proposals
 - [ ] Kanban board
