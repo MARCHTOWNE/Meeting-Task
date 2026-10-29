@@ -1,20 +1,10 @@
-"use client";
-
+import { Suspense } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { CalendarDays, ListTodo, Sparkles, Users } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Sparkles } from "lucide-react";
 import { ModeToggle } from "@/components/mode-toggle";
-
-const NAV_ITEMS = [
-  { href: "/tasks", label: "任务", icon: ListTodo },
-  { href: "/meetings", label: "会议", icon: CalendarDays },
-  { href: "/members", label: "成员", icon: Users },
-];
+import { ActiveNavLinks, NavLinks } from "@/components/nav-links";
 
 export function SiteHeader() {
-  const pathname = usePathname();
-
   return (
     <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-5xl items-center gap-6 px-4 sm:px-6">
@@ -25,26 +15,10 @@ export function SiteHeader() {
           <span className="hidden sm:inline">Meeting Tasks</span>
         </Link>
 
-        <nav className="flex items-center gap-1">
-          {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-            const active = pathname.startsWith(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors",
-                  active
-                    ? "bg-secondary font-medium text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Icon className="size-4" />
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
+        {/* usePathname 在动态路由里需要放在 Suspense 中 */}
+        <Suspense fallback={<NavLinks />}>
+          <ActiveNavLinks />
+        </Suspense>
 
         <div className="ml-auto">
           <ModeToggle />

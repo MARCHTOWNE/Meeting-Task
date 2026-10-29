@@ -22,4 +22,13 @@ export type Task = {
   assignee?: { name: string } | null;
 };
 
+export type Meeting = {
+  id: string;
+  title: string;
+  meeting_date: string;
+  transcript: string;
+  summary: string | null;
+  created_at: string;
+};
+
 export type ActionResult = { ok: true } | { ok: false; error: string };

@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import { getSupabase } from "@/lib/supabase";
 import type { ActionResult, TaskPriority, TaskStatus } from "@/lib/types";
 
+function revalidateAll() {
+  revalidatePath("/tasks");
+  revalidatePath("/meetings", "layout");
+}
+
 const PRIORITIES: TaskPriority[] = ["low", "medium", "high"];
 const STATUSES: TaskStatus[] = ["todo", "in_progress", "done"];
 
@@ -27,7 +32,7 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
     });
 
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/tasks");
+  revalidateAll();
   return { ok: true };
 }
 
@@ -43,7 +48,7 @@ export async function updateTaskStatus(
     .eq("id", id);
 
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/tasks");
+  revalidateAll();
   return { ok: true };
 }
 
@@ -51,6 +56,6 @@ export async function deleteTask(id: string): Promise<ActionResult> {
   const { error } = await getSupabase().from("tasks").delete().eq("id", id);
 
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/tasks");
+  revalidateAll();
   return { ok: true };
 }
