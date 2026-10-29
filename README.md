@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Meeting Tasks
 
-## Getting Started
+> Turn meeting notes into actionable tasks with an AI agent — with a human in the loop.
 
-First, run the development server:
+Paste a meeting transcript, and an AI agent reads it, checks existing tasks and team members, then **proposes** new tasks or updates to existing ones (e.g. marking a task as done when someone says "I fixed it"). Nothing is written to the database until you review and confirm each proposal.
+
+> 🚧 Work in progress. See the [roadmap](#roadmap) below.
+
+## Features
+
+- **Tasks** — create, update status, delete; priority, assignee, due date and overdue highlighting
+- **Meetings** — store meeting transcripts, view tasks linked to each meeting
+- **AI task extraction** *(in progress)* — tool-calling agent that proposes create/update actions for human review
+- Dark mode, responsive layout, accessible components
+
+## Tech stack
+
+| Layer | Choice |
+| --- | --- |
+| Framework | [Next.js 16](https://nextjs.org) (App Router, Server Components, Server Actions) |
+| Language | TypeScript |
+| Database | [Supabase](https://supabase.com) (PostgreSQL, Row Level Security) |
+| UI | [shadcn/ui](https://ui.shadcn.com) + Radix UI, Tailwind CSS v4, Lucide icons |
+| AI | [Vercel AI SDK](https://ai-sdk.dev) + OpenAI |
+| CI | GitHub Actions (lint, type-check, build) |
+
+## Design decisions
+
+- **Server-only database access.** RLS is enabled on every table with no public policies, so the browser can never query the database directly. All reads and writes go through Server Components and Server Actions using a server-only secret key.
+- **Human-in-the-loop agent.** Read tools (search tasks, list members) run automatically; write operations are only *proposed* and must be confirmed by the user.
+- **Traceability.** Each extracted task stores a `source_quote` — the exact sentence from the transcript it came from — to make AI output verifiable.
+
+## Getting started
+
+### Prerequisites
+
+- Node.js 20+
+- A Supabase project
+- An OpenAI API key
+
+### Setup
 
 ```bash
+git clone https://github.com/MARCHTOWNE/Meeting-Task.git
+cd Meeting-Task
+npm install
+cp .env.example .env.local   # then fill in your keys
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Create the database tables by running the SQL in [`supabase/schema.sql`](supabase/schema.sql) in the Supabase SQL Editor, then open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+app/
+  tasks/          # Task list page + server actions
+  meetings/       # Meeting list, create, detail, edit + server actions
+components/
+  ui/             # shadcn/ui components
+  tasks/          # Task card, create-task dialog
+  meetings/       # Meeting form, delete button
+lib/              # Supabase client, types, shared helpers
+supabase/         # Database schema
+```
 
-## Learn More
+## Roadmap
 
-To learn more about Next.js, take a look at the following resources:
+- [x] Task CRUD
+- [x] Meeting CRUD
+- [ ] Team member management
+- [ ] AI agent: extract task proposals from transcripts
+- [ ] Review & confirm proposals
+- [ ] Kanban board
+- [ ] Deploy to Vercel
+- [ ] Auth (Supabase Auth) and per-user data
+- [ ] Agent evaluation set
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## License
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+[MIT](LICENSE)
