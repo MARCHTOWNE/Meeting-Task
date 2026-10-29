@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { ArrowLeft, CalendarDays, FileText, ListTodo, Pencil } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
 import { formatDate, todayInMelbourne } from "@/lib/task-meta";
-import type { Meeting, Task } from "@/lib/types";
+import type { Meeting, Member, Task } from "@/lib/types";
 import { DeleteMeetingButton } from "@/components/meetings/delete-meeting-button";
 import { ExtractPanel } from "@/components/meetings/extract-panel";
 import { TaskCard } from "@/components/tasks/task-card";
@@ -20,19 +20,21 @@ export default async function MeetingDetailPage({
   const { id } = await params;
   const supabase = getSupabase();
 
-  const [meetingRes, tasksRes] = await Promise.all([
+  const [meetingRes, tasksRes, membersRes] = await Promise.all([
     supabase.from("meetings").select("*").eq("id", id).maybeSingle(),
     supabase
       .from("tasks")
       .select("*, assignee:members(name)")
       .eq("meeting_id", id)
       .order("created_at", { ascending: true }),
+    supabase.from("members").select("id, name, email").order("name"),
   ]);
 
   if (meetingRes.error || !meetingRes.data) notFound();
 
   const meeting = meetingRes.data as Meeting;
   const tasks = (tasksRes.data ?? []) as Task[];
+  const members = (membersRes.data ?? []) as Member[];
   const today = todayInMelbourne();
 
   return (
@@ -52,6 +54,12 @@ export default async function MeetingDetailPage({
               <CalendarDays className="size-4" />
               {formatDate(meeting.meeting_date)}
             </p>
+            {meeting.summary && (
+              <p className="max-w-2xl pt-1 text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">AI 摘要：</span>
+                {meeting.summary}
+              </p>
+            )}
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" asChild>
@@ -82,7 +90,7 @@ export default async function MeetingDetailPage({
         </Card>
 
         <div className="space-y-4">
-          <ExtractPanel meetingId={meeting.id} />
+          <ExtractPanel meetingId={meeting.id} members={members} />
 
           <div className="space-y-3">
             <h2 className="flex items-center gap-2 font-medium">

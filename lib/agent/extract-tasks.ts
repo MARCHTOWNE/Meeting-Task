@@ -19,7 +19,7 @@ export async function extractTasks({
   meeting: { title: string; meeting_date: string; transcript: string };
   providerOptions?: Parameters<typeof generateText>[0]["providerOptions"];
 }): Promise<ExtractionResult> {
-  const { tools, proposals, steps, getSummary } = createAgentTools(dataSource);
+  const { tools, proposals, steps, getSummary } = createAgentTools(dataSource, { meetingDate: meeting.meeting_date });
 
   const result = await generateText({
     model,

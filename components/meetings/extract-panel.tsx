@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Bot, ChevronRight, Loader2, RotateCcw, Sparkles, Wrench } from "lucide-react";
+import { Bot, CheckCheck, ChevronRight, Loader2, RotateCcw, Sparkles, Wrench } from "lucide-react";
 import { toast } from "sonner";
-import { extractTaskProposals } from "@/app/meetings/agent-actions";
-import type { ExtractionResult } from "@/lib/agent/types";
+import { applyProposals, extractTaskProposals } from "@/app/meetings/agent-actions";
+import { toApplyInput } from "@/lib/agent/to-apply-input";
+import type { ExtractionResult, Proposal } from "@/lib/agent/types";
+import type { Member } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,21 +18,55 @@ import {
 } from "@/components/ui/card";
 import { ProposalCard } from "@/components/meetings/proposal-card";
 
-export function ExtractPanel({ meetingId }: { meetingId: string }) {
-  const [pending, startTransition] = useTransition();
+export function ExtractPanel({ meetingId, members }: { meetingId: string; members: Member[] }) {
+  const [extracting, startExtract] = useTransition();
+  const [applying, startApply] = useTransition();
   const [result, setResult] = useState<ExtractionResult | null>(null);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const busy = extracting || applying;
+  const selectedCount = proposals.filter((p) => selected.has(p.id)).length;
 
   function run() {
-    startTransition(async () => {
+    startExtract(async () => {
       const res = await extractTaskProposals(meetingId);
       if (!res.ok) {
         toast.error(res.error);
         return;
       }
       setResult(res.result);
+      setProposals(res.result.proposals);
+      setSelected(new Set(res.result.proposals.map((p) => p.id))); // 默认全选
       const n = res.result.proposals.length;
       if (n === 0) toast.info("AI 没有在这场会议里找到新的任务");
-      else toast.success(`AI 提出了 ${n} 条任务提议`);
+      else toast.success(`AI 提出了 ${n} 条任务提议，请确认`);
+    });
+  }
+
+  function toggle(id: string, on: boolean) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  function apply() {
+    if (!result) return;
+    const chosen = proposals.filter((p) => selected.has(p.id));
+    startApply(async () => {
+      const res = await applyProposals(toApplyInput(meetingId, result.summary, chosen));
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      const parts = [res.created && `新建 ${res.created} 条`, res.updated && `更新 ${res.updated} 条`].filter(Boolean);
+      toast.success(`已写入：${parts.join("，")}任务`);
+      setResult(null);
+      setProposals([]);
+      setSelected(new Set());
     });
   }
 
@@ -46,13 +82,13 @@ export function ExtractPanel({ meetingId }: { meetingId: string }) {
             AI 会读取会议记录、查看成员和已有任务，提议新建或更新任务。你确认后才会写入。
           </CardDescription>
           <CardAction>
-            <Button size="sm" onClick={run} disabled={pending}>
-              {pending ? <Loader2 className="animate-spin" /> : result ? <RotateCcw /> : <Sparkles />}
-              {pending ? "分析中…" : result ? "重新提取" : "开始提取"}
+            <Button size="sm" onClick={run} disabled={busy}>
+              {extracting ? <Loader2 className="animate-spin" /> : result ? <RotateCcw /> : <Sparkles />}
+              {extracting ? "分析中…" : result ? "重新提取" : "开始提取"}
             </Button>
           </CardAction>
         </CardHeader>
-        {pending && (
+        {extracting && (
           <CardContent>
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <Bot className="size-4 animate-pulse" />
@@ -62,7 +98,7 @@ export function ExtractPanel({ meetingId }: { meetingId: string }) {
         )}
       </Card>
 
-      {result && !pending && (
+      {result && !extracting && (
         <div className="space-y-4">
           {result.summary && (
             <div className="rounded-xl border bg-card p-4 shadow-xs">
@@ -98,14 +134,49 @@ export function ExtractPanel({ meetingId }: { meetingId: string }) {
             </p>
           </details>
 
-          {result.proposals.length > 0 && (
+          {proposals.length > 0 && (
             <div className="space-y-3">
-              <h3 className="font-medium">
-                任务提议 <span className="text-sm font-normal text-muted-foreground">{result.proposals.length}</span>
-              </h3>
-              {result.proposals.map((p) => (
-                <ProposalCard key={p.id} proposal={p} />
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium">
+                  任务提议{" "}
+                  <span className="text-sm font-normal text-muted-foreground">{proposals.length}</span>
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() =>
+                    setSelected(
+                      selectedCount === proposals.length ? new Set() : new Set(proposals.map((p) => p.id))
+                    )
+                  }
+                >
+                  {selectedCount === proposals.length ? "全部取消" : "全选"}
+                </Button>
+              </div>
+
+              {proposals.map((p) => (
+                <ProposalCard
+                  key={p.id}
+                  proposal={p}
+                  members={members}
+                  selected={selected.has(p.id)}
+                  disabled={busy}
+                  onSelectedChange={(on) => toggle(p.id, on)}
+                  onChange={(next) => setProposals((list) => list.map((x) => (x.id === next.id ? next : x)))}
+                />
               ))}
+
+              {/* 底部操作栏：滚动时始终可见 */}
+              <div className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur">
+                <p className="text-sm text-muted-foreground">
+                  已选择 <span className="font-medium text-foreground">{selectedCount}</span> / {proposals.length} 条
+                </p>
+                <Button onClick={apply} disabled={busy || selectedCount === 0}>
+                  {applying ? <Loader2 className="animate-spin" /> : <CheckCheck />}
+                  确认写入
+                </Button>
+              </div>
             </div>
           )}
         </div>
