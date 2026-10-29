@@ -11,7 +11,7 @@ Paste a meeting transcript, and an AI agent reads it, checks existing tasks and 
 - **Tasks** — create, update status, delete; priority, assignee, due date and overdue highlighting
 - **Meetings** — store meeting transcripts, view tasks linked to each meeting
 - **Members** — manage team members, see each person's todo / in-progress / done workload
-- **AI task extraction** *(in progress)* — tool-calling agent that proposes create/update actions for human review
+- **AI task extraction** — a tool-calling agent reads the transcript, looks up members and existing tasks, and proposes new tasks or updates (e.g. "mark as done"), each with the source quote it came from. Invalid tool calls are rejected with an error message so the model can correct itself, and the full execution trace is shown in the UI
 - Dark mode, responsive layout, accessible components
 
 ## Tech stack
@@ -23,12 +23,16 @@ Paste a meeting transcript, and an AI agent reads it, checks existing tasks and 
 | Database | [Supabase](https://supabase.com) (PostgreSQL, Row Level Security) |
 | UI | [shadcn/ui](https://ui.shadcn.com) + Radix UI, Tailwind CSS v4, Lucide icons |
 | AI | [Vercel AI SDK](https://ai-sdk.dev) + OpenAI |
-| CI | GitHub Actions (lint, type-check, build) |
+| Testing | Vitest, with a scripted mock model to test the agent loop deterministically |
+| CI | GitHub Actions (lint, type-check, unit tests, build) |
 
 ## Design decisions
 
 - **Server-only database access.** RLS is enabled on every table with no public policies, so the browser can never query the database directly. All reads and writes go through Server Components and Server Actions using a server-only secret key.
 - **Human-in-the-loop agent.** Read tools (search tasks, list members) run automatically; write operations are only *proposed* and must be confirmed by the user.
+- **Validated tool calls.** Every agent tool validates its input (dates, member ids, task ids, duplicates). Errors are returned to the model instead of thrown, so it can fix the call in the next step. The loop is capped at 12 steps to bound latency and cost.
+- **Cheapest viable model.** The agent defaults to `gpt-5-nano` with low reasoning effort — a full extraction costs a fraction of a cent. Override with `OPENAI_MODEL`.
+- **Testable agent.** Data access sits behind an `AgentDataSource` interface, so tests swap in fake data and a scripted mock model — no API calls in CI.
 - **Traceability.** Each extracted task stores a `source_quote` — the exact sentence from the transcript it came from — to make AI output verifiable.
 
 ## Getting started
@@ -63,7 +67,9 @@ components/
   tasks/          # Task card, create-task dialog
   meetings/       # Meeting form, delete button
   members/        # Member card, add / edit dialog
-lib/              # Supabase client, types, shared helpers
+lib/
+  agent/          # Agent: prompt, tools, loop, Supabase data source, tests
+                  # + Supabase client, types, shared helpers
 supabase/         # Database schema
 ```
 
@@ -72,7 +78,7 @@ supabase/         # Database schema
 - [x] Task CRUD
 - [x] Meeting CRUD
 - [x] Team member management
-- [ ] AI agent: extract task proposals from transcripts
+- [x] AI agent: extract task proposals from transcripts
 - [ ] Review & confirm proposals
 - [ ] Kanban board
 - [ ] Deploy to Vercel
