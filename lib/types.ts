@@ -20,6 +20,7 @@ export type Task = {
   created_at: string;
   updated_at: string;
   assignee?: { name: string } | null;
+  meeting?: { id: string; title: string } | null;
 };
 
 export type Meeting = {

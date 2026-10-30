@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CalendarDays, MoreHorizontal, Trash2, UserRound } from "lucide-react";
+import Link from "next/link";
+import { CalendarDays, MessagesSquare, MoreHorizontal, Pencil, Trash2, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { deleteTask, updateTaskStatus } from "@/app/tasks/actions";
 import { PRIORITY_META, STATUSES, STATUS_META, formatDate } from "@/lib/task-meta";
-import type { Task, TaskStatus } from "@/lib/types";
+import type { Member, Task, TaskStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -27,10 +28,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
 
-export function TaskCard({ task, today }: { task: Task; today: string }) {
+type Props = {
+  task: Task;
+  today: string;
+  members: Member[];
+  /** 看板里用的紧凑样式：不显示描述，状态由所在列表示 */
+  compact?: boolean;
+  /** 显示"来自哪场会议"的链接（会议详情页里不需要） */
+  showMeeting?: boolean;
+  /** 看板拖拽手柄，由外层传入 */
+  dragHandle?: React.ReactNode;
+};
+
+export function TaskCard({ task, today, members, compact, showMeeting = true, dragHandle }: Props) {
   const [pending, startTransition] = useTransition();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const status = STATUS_META[task.status];
   const priority = PRIORITY_META[task.priority];
@@ -56,11 +71,12 @@ export function TaskCard({ task, today }: { task: Task; today: string }) {
   return (
     <div
       className={cn(
-        "group flex items-start gap-3 rounded-xl border bg-card p-4 shadow-xs transition-all hover:shadow-sm",
+        "group flex items-start gap-3 rounded-xl border bg-card shadow-xs transition-all hover:shadow-sm",
+        compact ? "p-3" : "p-4",
         pending && "opacity-60"
       )}
     >
-      <StatusIcon className={cn("mt-0.5 size-5 shrink-0", status.className)} />
+      {dragHandle ?? <StatusIcon className={cn("mt-0.5 size-5 shrink-0", status.className)} />}
 
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -77,7 +93,7 @@ export function TaskCard({ task, today }: { task: Task; today: string }) {
           </Badge>
         </div>
 
-        {task.description && (
+        {!compact && task.description && (
           <p className="line-clamp-2 text-sm text-muted-foreground">
             {task.description}
           </p>
@@ -100,9 +116,19 @@ export function TaskCard({ task, today }: { task: Task; today: string }) {
               {overdue && " · 已逾期"}
             </span>
           )}
-          <span className={cn("flex items-center gap-1", status.className)}>
-            {status.label}
-          </span>
+          {!compact && (
+            <span className={cn("flex items-center gap-1", status.className)}>{status.label}</span>
+          )}
+          {showMeeting && task.meeting && (
+            <Link
+              href={`/meetings/${task.meeting.id}`}
+              className="flex max-w-48 items-center gap-1 truncate hover:text-foreground hover:underline"
+              title={`来自会议：${task.meeting.title}`}
+            >
+              <MessagesSquare className="size-3.5 shrink-0" />
+              <span className="truncate">{task.meeting.title}</span>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -119,6 +145,11 @@ export function TaskCard({ task, today }: { task: Task; today: string }) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+            <Pencil />
+            编辑
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuLabel>更改状态</DropdownMenuLabel>
           {STATUSES.filter((s) => s !== task.status).map((s) => {
             const Icon = STATUS_META[s].icon;
@@ -136,6 +167,8 @@ export function TaskCard({ task, today }: { task: Task; today: string }) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <TaskFormDialog open={editOpen} onOpenChange={setEditOpen} members={members} task={task} />
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>

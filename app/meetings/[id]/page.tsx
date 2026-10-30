@@ -103,7 +103,9 @@ export default async function MeetingDetailPage({
                 这场会议还没有关联任务。
               </p>
             ) : (
-              tasks.map((t) => <TaskCard key={t.id} task={t} today={today} />)
+              tasks.map((t) => (
+                <TaskCard key={t.id} task={t} today={today} members={members} showMeeting={false} />
+              ))
             )}
           </div>
         </div>

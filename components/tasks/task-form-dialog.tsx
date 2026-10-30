@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Loader2, Plus } from "lucide-react";
+import { useTransition } from "react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { createTask } from "@/app/tasks/actions";
-import type { Member } from "@/lib/types";
+import { createTask, updateTask } from "@/app/tasks/actions";
+import { STATUSES, STATUS_META } from "@/lib/task-meta";
+import type { Member, Task } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,7 +15,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,43 +27,53 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-export function CreateTaskDialog({ members }: { members: Member[] }) {
-  const [open, setOpen] = useState(false);
+type Props = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  members: Member[];
+  /** 传入 task 时为编辑模式，否则为新建 */
+  task?: Task;
+};
+
+export function TaskFormDialog({ open, onOpenChange, members, task }: Props) {
   const [pending, startTransition] = useTransition();
+  const isEdit = Boolean(task);
 
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
-      const result = await createTask(formData);
+      const result = task ? await updateTask(task.id, formData) : await createTask(formData);
       if (result.ok) {
-        toast.success("任务已创建");
-        setOpen(false);
+        toast.success(isEdit ? "任务已更新" : "任务已创建");
+        onOpenChange(false);
       } else {
-        toast.error(`创建失败：${result.error}`);
+        toast.error(`${isEdit ? "保存" : "创建"}失败：${result.error}`);
       }
     });
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus />
-          新建任务
-        </Button>
-      </DialogTrigger>
-
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>新建任务</DialogTitle>
+          <DialogTitle>{isEdit ? "编辑任务" : "新建任务"}</DialogTitle>
           <DialogDescription>
-            手动添加一条任务。之后也可以让 AI 从会议记录里自动提取。
+            {isEdit
+              ? "修改任务内容、负责人、截止日期、优先级或状态。"
+              : "手动添加一条任务。也可以在会议页让 AI 从会议记录里自动提取。"}
           </DialogDescription>
         </DialogHeader>
 
         <form action={handleSubmit} className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="title">标题</Label>
-            <Input id="title" name="title" placeholder="例如：整理用户访谈结论" required />
+            <Input
+              id="title"
+              name="title"
+              placeholder="例如：整理用户访谈结论"
+              defaultValue={task?.title}
+              maxLength={100}
+              required
+            />
           </div>
 
           <div className="grid gap-2">
@@ -72,14 +82,16 @@ export function CreateTaskDialog({ members }: { members: Member[] }) {
               id="description"
               name="description"
               placeholder="可选，补充任务细节"
+              defaultValue={task?.description ?? ""}
+              maxLength={1000}
               rows={3}
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label>负责人</Label>
-              <Select name="assignee_id" defaultValue="none">
+              <Select name="assignee_id" defaultValue={task?.assignee_id ?? "none"}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -96,12 +108,12 @@ export function CreateTaskDialog({ members }: { members: Member[] }) {
 
             <div className="grid gap-2">
               <Label htmlFor="due_date">截止日期</Label>
-              <Input id="due_date" name="due_date" type="date" />
+              <Input id="due_date" name="due_date" type="date" defaultValue={task?.due_date ?? ""} />
             </div>
 
             <div className="grid gap-2">
               <Label>优先级</Label>
-              <Select name="priority" defaultValue="medium">
+              <Select name="priority" defaultValue={task?.priority ?? "medium"}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -112,6 +124,24 @@ export function CreateTaskDialog({ members }: { members: Member[] }) {
                 </SelectContent>
               </Select>
             </div>
+
+            {isEdit && (
+              <div className="grid gap-2">
+                <Label>状态</Label>
+                <Select name="status" defaultValue={task?.status}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {STATUS_META[s].label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -122,7 +152,7 @@ export function CreateTaskDialog({ members }: { members: Member[] }) {
             </DialogClose>
             <Button type="submit" disabled={pending}>
               {pending && <Loader2 className="animate-spin" />}
-              创建
+              {isEdit ? "保存" : "创建"}
             </Button>
           </DialogFooter>
         </form>
