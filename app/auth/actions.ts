@@ -10,6 +10,11 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** 把 Supabase 的错误码翻译成用户能看懂的提示 */
 function authErrorMessage(error: AuthError, fallback: string) {
+  // SMTP 配置有问题时（比如授权码错误），Supabase 只返回一句英文；真实原因记录在服务器日志和 Supabase Auth 日志里
+  if (/sending .*email/i.test(error.message)) {
+    console.error("[auth] 邮件发送失败，请检查 Supabase 的 SMTP 设置：", error.message);
+    return "验证邮件发送失败，请稍后再试";
+  }
   switch (error.code) {
     case "over_email_send_rate_limit":
       return "邮件发送太频繁，请稍后再试";
