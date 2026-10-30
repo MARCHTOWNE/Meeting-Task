@@ -1,23 +1,23 @@
-## What does this PR do?
+## 这个 PR 做了什么？
 
-<!-- A short summary of the change -->
+<!-- 一两句话说明改动的目的 -->
 
-## Changes
+## 改动内容
 
 -
 
-## How to test
+## 如何测试
 
 1.
 
-## Screenshots
+## 截图
 
-<!-- Optional: before / after screenshots for UI changes -->
+<!-- 可选：界面改动请附上修改前后的截图 -->
 
-## Checklist
+## 检查清单
 
-- [ ] `npm run lint` passes
-- [ ] `npm run typecheck` passes
-- [ ] `npm test` passes
-- [ ] `npm run build` passes
-- [ ] No secrets or `.env.local` committed
+- [ ] `npm run lint` 通过
+- [ ] `npm run typecheck` 通过
+- [ ] `npm test` 通过
+- [ ] `npm run build` 通过
+- [ ] 没有提交密钥或 `.env.local`

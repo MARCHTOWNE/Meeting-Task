@@ -1,8 +1,10 @@
-# Meeting Tasks
+# Meeting Tasks · 会议纪要转任务
 
-> Turn meeting notes into actionable tasks with an AI agent — with a human in the loop.
+> 用 AI Agent 把会议记录自动变成可执行的任务，并由人来做最后确认。
 
-**Live demo:** https://meeting-task.vercel.app — sign up with any email (each account has its own data and 10 AI extractions per day).
+**中文** | [English](README.en.md)
+
+**在线体验：** https://meeting-task.vercel.app （任意邮箱注册即可。每个账号的数据相互隔离，每天可以使用 10 次 AI 提取）
 
 [![CI](https://github.com/MARCHTOWNE/Meeting-Task/actions/workflows/ci.yml/badge.svg)](https://github.com/MARCHTOWNE/Meeting-Task/actions/workflows/ci.yml)
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-black)
@@ -10,177 +12,177 @@
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20RLS-3ecf8e)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 
-Paste a meeting transcript. An AI agent reads it, looks up your team members and existing tasks, then **proposes** new tasks or changes to existing ones — for example marking a task as done when someone says *"I fixed it yesterday"*. Every proposal shows the sentence it came from, and **nothing is written until you review and confirm it**.
+把会议记录粘贴进来，AI Agent 会阅读内容，查询团队成员和已有任务，然后**提议**新建任务或更新已有任务。例如有人说"那个问题我昨天已经修好了"，它会提议把对应的任务标记为已完成。每条提议都附有它在会议原文中的出处，**只有经过你确认，才会写入数据库**。
 
-![AI extraction: summary, agent trace and proposals to review](docs/screenshots/ai-extraction.png)
+![AI 提取：会议摘要、Agent 执行过程和待确认的任务提议](docs/screenshots/ai-extraction.png)
 
-## Features
+## 功能
 
-- **AI task extraction** — a tool-calling agent proposes new tasks and updates to existing ones, each with the source quote from the transcript. The full execution trace (tool calls, rejected calls, corrected dates, token usage) is shown in the UI
-- **Human review** — tick, untick or edit each proposal (title, owner, due date, priority), then apply them all in one transaction; the meeting summary is saved with the meeting
-- **Tasks** — list and **Kanban board** views; drag cards between columns with the mouse *or keyboard*, with optimistic updates; create, edit, delete; overdue highlighting; link back to the source meeting
-- **Meetings** and **Members** — full CRUD; members show their todo / in-progress / done workload
-- **Accounts** — sign up / sign in with Supabase Auth; every user only sees their own data
-- **Daily AI quota** — 10 extractions per account per 24 hours (configurable), so open sign-up cannot run up the OpenAI bill
-- Dark mode, responsive layout, accessible components
+- **AI 提取任务**：基于工具调用（Tool Calling）的 Agent 会提议新建任务或更新已有任务，每条提议都附带会议原文出处。页面会完整展示 Agent 的执行过程，包括调用了哪些工具、哪些调用被退回、哪些日期被校正，以及 token 用量。
+- **人工确认**：可以勾选、取消或修改每条提议（标题、负责人、截止日期、优先级），确认后在**一个事务**里统一写入。会议摘要也会一并保存。
+- **任务管理**：支持列表和**看板**两种视图。看板可以用鼠标或**键盘**拖动卡片，并且有乐观更新。任务可以新建、编辑和删除，逾期的任务会高亮显示，从会议中提取的任务可以跳回来源会议。
+- **会议和成员管理**：完整的增删改查。成员卡片会显示每个人手上待办、进行中、已完成的任务数量。
+- **账号系统**：基于 Supabase Auth 的注册和登录，每个用户只能看到自己的数据。
+- **每日 AI 额度**：每个账号每 24 小时最多提取 10 次（次数可以配置），开放注册也不会让 OpenAI 费用失控。
+- 支持深色模式和响应式布局，组件符合无障碍规范。
 
-| Kanban board | Dark mode |
+| 看板视图 | 深色模式 |
 | --- | --- |
-| ![Kanban board](docs/screenshots/board.png) | ![Kanban board in dark mode](docs/screenshots/board-dark.png) |
+| ![看板](docs/screenshots/board.png) | ![深色模式下的看板](docs/screenshots/board-dark.png) |
 
-## How the agent works
+## Agent 的工作流程
 
 ```mermaid
 sequenceDiagram
-    actor User
-    participant App as Next.js server action
+    actor 用户
+    participant App as Next.js Server Action
     participant LLM as OpenAI (gpt-5-nano)
-    participant DB as Postgres (RLS)
+    participant DB as PostgreSQL (RLS)
 
-    User->>App: Click "开始提取"
-    App->>DB: claim_ai_extraction() — atomic daily quota
-    App->>LLM: system prompt + calendar + transcript + tools
-    loop up to 12 steps
-        LLM->>App: tool call
-        alt read tool (list_members, search_tasks)
-            App->>DB: query as the signed-in user
-            DB-->>App: rows
-        else propose_create_task / propose_update_task
-            App->>App: validate (ids, duplicates, similar titles, finished work)<br/>resolve due date from the quoted phrase
-            Note over App: collected as a proposal — no DB write
+    用户->>App: 点击「开始提取」
+    App->>DB: claim_ai_extraction()：原子地扣减每日额度
+    App->>LLM: 系统提示词 + 日历 + 会议记录 + 工具定义
+    loop 最多 12 轮
+        LLM->>App: 调用工具
+        alt 读工具（list_members、search_tasks）
+            App->>DB: 以当前登录用户的身份查询
+            DB-->>App: 查询结果
+        else 写工具（propose_create_task、propose_update_task）
+            App->>App: 校验（ID、重复、相似标题、已完成的工作）<br/>根据原文说法换算截止日期
+            Note over App: 只收集为"提议"，不写数据库
         else finish(summary)
-            App->>App: check length, stop the loop
+            App->>App: 检查摘要长度，结束循环
         end
-        App-->>LLM: result, or an error message so the model can self-correct
+        App-->>LLM: 返回结果；出错时返回错误原因，让模型自行修正
     end
-    App-->>User: summary + trace + proposals
-    User->>App: review, edit, confirm
-    App->>DB: apply_task_proposals() — one transaction
+    App-->>用户: 摘要 + 执行过程 + 任务提议
+    用户->>App: 审核、修改、确认
+    App->>DB: apply_task_proposals()：一个事务内完成写入
 ```
 
-**Division of labour between the model and code.** The model is good at *understanding* the conversation; code is better at *rules and arithmetic*. So the model identifies action items, owners and the deadline phrase (e.g. "下周一前"), while code:
+**模型和代码各做擅长的事。** 模型擅长**理解**对话，代码擅长**执行规则和计算**。所以模型负责识别待办事项、负责人，以及截止日期的说法（比如"下周一前"），代码负责以下几件事：
 
-- **computes due dates** from that phrase relative to the meeting date (small models are often off by a day),
-- **rejects finished work** — the model must label each item `not_started / in_progress / done`, and `done` items cannot become new tasks,
-- **blocks duplicates** — exact titles and similar titles (character-bigram Dice similarity ≥ 0.6) are bounced back with a hint to update the existing task instead,
-- **validates ids and dates** and returns errors to the model rather than throwing, so it fixes the call in the next step.
+- **计算截止日期**：根据原文说法和会议日期换算出具体日期。小模型算日期经常差一天，这一步交给代码更可靠。
+- **拦截已完成的工作**：模型必须给每个事项标注状态（`not_started` / `in_progress` / `done`），标为 `done` 的事项不允许新建为任务。
+- **防止重复**：标题完全相同、或者相似度超过 0.6（按字符二元组的 Dice 系数计算）的任务会被退回，并提示模型改为更新已有任务。
+- **校验 ID 和日期**：出错时不抛异常，而是把错误原因返回给模型，让它在下一轮修正。
 
-## Architecture
+## 系统架构
 
 ```mermaid
 flowchart LR
-    Browser -->|session cookie| Proxy["proxy.ts<br/>refresh session, redirect to /login"]
+    Browser[浏览器] -->|登录 Cookie| Proxy["proxy.ts<br/>刷新登录状态，未登录跳转 /login"]
     Proxy --> RSC["Server Components<br/>+ Server Actions"]
-    RSC -->|"Supabase SSR client<br/>(as the signed-in user)"| PG[("Postgres<br/>Row Level Security")]
-    RSC --> Agent["Agent loop<br/>Vercel AI SDK"]
-    Agent -->|tools| PG
+    RSC -->|"Supabase SSR 客户端<br/>（以当前用户身份）"| PG[("PostgreSQL<br/>行级安全 RLS")]
+    RSC --> Agent["Agent 循环<br/>Vercel AI SDK"]
+    Agent -->|工具| PG
     Agent --> OpenAI[(OpenAI)]
 ```
 
-## Tech stack
+## 技术栈
 
-| Layer | Choice |
+| 层 | 选型 |
 | --- | --- |
-| Framework | [Next.js 16](https://nextjs.org) — App Router, Server Components, Server Actions, Cache Components, `proxy.ts` |
-| Language | TypeScript, Zod for validation |
-| Database & auth | [Supabase](https://supabase.com) — Postgres, Row Level Security, Auth |
-| UI | [shadcn/ui](https://ui.shadcn.com) + Radix UI, Tailwind CSS v4, Lucide icons, dnd-kit |
-| AI | [Vercel AI SDK](https://ai-sdk.dev) tool calling + OpenAI `gpt-5-nano` |
-| Testing | Vitest with a scripted mock language model; SQL tested on PGlite |
-| CI / CD | GitHub Actions (lint, type-check, tests, build) → Vercel |
+| 框架 | [Next.js 16](https://nextjs.org)：App Router、Server Components、Server Actions、Cache Components、`proxy.ts` |
+| 语言 | TypeScript，用 Zod 做数据校验 |
+| 数据库与认证 | [Supabase](https://supabase.com)：PostgreSQL、行级安全（RLS）、Auth |
+| 界面 | [shadcn/ui](https://ui.shadcn.com) + Radix UI、Tailwind CSS v4、Lucide 图标、dnd-kit |
+| AI | [Vercel AI SDK](https://ai-sdk.dev) 工具调用 + OpenAI `gpt-5-nano` |
+| 测试 | Vitest，用脚本化的模拟大模型测试 Agent；SQL 在 PGlite 上测试 |
+| CI / CD | GitHub Actions（lint、类型检查、测试、构建）→ 自动部署到 Vercel |
 
-## Design decisions
+## 设计决策
 
-**Security**
+**安全**
 
-- **Row Level Security per user.** Every table has a `user_id` and an owner-only RLS policy. The server queries Postgres *as the signed-in user* (Supabase SSR client + session cookie), never with an admin key — a missing filter in app code still cannot leak another user's data. The agent's tools and the database functions run under the same policies.
-- **Same-account foreign keys.** Foreign keys ignore RLS, so tasks reference members and meetings through composite keys `(id, user_id)`; a task can never point at another account's member.
-- **Auth checks in layers.** `proxy.ts` refreshes the session and redirects signed-out visitors (fast check); the database enforces access (real check). Sessions are verified with `getClaims()` (JWT signature). The post-login `?next=` redirect only accepts relative paths, preventing open redirects.
-- **Prompt-injection containment.** The transcript is passed as data and the agent can only *propose* writes, so instructions hidden in a transcript cannot change data without a human confirming them.
+- **按用户隔离的行级安全（RLS）**：每张表都有 `user_id` 字段和"只能访问自己数据"的 RLS 策略。服务端**以当前登录用户的身份**访问数据库（Supabase SSR 客户端 + 登录 Cookie），从不使用管理员密钥。即使应用代码里漏写了过滤条件，也不会泄露别人的数据。Agent 的工具和数据库函数同样受这些策略约束。
+- **同账号外键**：外键约束不受 RLS 限制，所以任务通过 `(id, user_id)` 组合外键引用成员和会议，从数据库层面保证任务不可能引用其他账号的成员。
+- **分层的权限检查**：`proxy.ts` 负责刷新登录状态，并拦截未登录的访问（快速检查）；数据库负责真正的访问控制。登录状态用 `getClaims()` 校验 JWT 签名。登录后的 `?next=` 跳转只接受站内相对路径，防止开放重定向攻击。
+- **限制提示词注入的影响**：会议记录只作为数据传给模型，而 Agent 只能"提议"写入。即使会议记录里藏了恶意指令，没有人工确认也改不了任何数据。
 
-**Reliability and cost**
+**可靠性与成本**
 
-- **Atomic writes.** Confirmed proposals are applied by a Postgres function (`apply_task_proposals`) in a single transaction — if one update fails, nothing is written. Input is validated with Zod in the server action and again by foreign keys and check constraints.
-- **Race-free quota.** `claim_ai_extraction()` checks and records usage under a per-user advisory lock, so parallel clicks cannot slip past the limit. Usage rows are insert-only for users, so a quota cannot be reset from the client, and a use is claimed *before* calling the model.
-- **Cheapest viable model.** `gpt-5-nano` with low reasoning effort; a full extraction costs about $0.002. The loop is capped at 12 steps and the summary is length-checked. Override with `OPENAI_MODEL`.
-- **Traceability.** Each extracted task stores its `source_quote`, so AI output can always be checked against the transcript.
+- **原子写入**：确认后的提议由数据库函数 `apply_task_proposals` 在同一个事务里写入，任何一条失败，整批都不会写入。数据先在 Server Action 里用 Zod 校验一次，再由外键和 check 约束兜底。
+- **不会被并发绕过的额度限制**：`claim_ai_extraction()` 在每个用户的 advisory lock 保护下完成"检查 + 记录"，同时点击多次也不会超额。使用记录对用户来说只能新增、不能修改或删除，无法从客户端重置额度。调用模型**之前**就先扣减额度，失败的调用也会计入。
+- **选用够用且最便宜的模型**：`gpt-5-nano` 加低推理强度，一次完整提取约 0.002 美元。Agent 循环最多 12 轮，摘要长度也有校验。可以通过 `OPENAI_MODEL` 更换模型。
+- **可追溯**：每个由 AI 提取的任务都保存了它在会议原文中的出处（`source_quote`），随时可以核对 AI 的输出。
 
-**Testability**
+**可测试性**
 
-- Agent data access sits behind an `AgentDataSource` interface, and tests replay scripted tool calls through a mock language model — the agent loop, validation, self-correction and date resolution are tested deterministically with **no API calls in CI**.
-- Database migrations were tested against real Postgres (PGlite) with two simulated users: isolation, cross-account foreign keys, rollback on failure and quota limits.
+- Agent 的数据访问通过 `AgentDataSource` 接口隔离，测试时用模拟大模型按脚本回放工具调用。Agent 循环、参数校验、自我修正和日期换算都可以稳定地测试，**CI 中不调用任何真实 API**。
+- 数据库迁移在真实的 PostgreSQL（PGlite）上测试过，模拟了两个用户，覆盖了数据隔离、跨账号外键、失败回滚和额度限制。
 
-## Testing
+## 测试
 
 ```bash
-npm test          # 36 unit tests (agent loop, validation, dates, payload mapping, safe redirect)
+npm test          # 36 个单元测试（Agent 循环、校验、日期换算、数据转换、安全跳转）
 npm run lint
 npm run typecheck
 npm run build
 ```
 
-All four run in GitHub Actions on every pull request. Every change in this repository went through a PR — see the [closed pull requests](https://github.com/MARCHTOWNE/Meeting-Task/pulls?q=is%3Apr+is%3Aclosed) for the development history.
+每个 Pull Request 都会在 GitHub Actions 上自动运行以上四项。本仓库的所有改动都是通过 PR 合并的，完整的开发过程见[已关闭的 Pull Requests](https://github.com/MARCHTOWNE/Meeting-Task/pulls?q=is%3Apr+is%3Aclosed)。
 
-## Getting started
+## 本地运行
 
-**Prerequisites:** Node.js 20+, a Supabase project, an OpenAI API key.
+**准备：** Node.js 20+、一个 Supabase 项目、一个 OpenAI API key。
 
 ```bash
 git clone https://github.com/MARCHTOWNE/Meeting-Task.git
 cd Meeting-Task
 npm install
-cp .env.example .env.local   # fill in your keys
+cp .env.example .env.local   # 填入你自己的 key
 npm run dev
 ```
 
-Set up the database in the Supabase dashboard:
+在 Supabase 后台初始化数据库，按顺序操作：
 
-1. **SQL Editor** → run [`supabase/schema.sql`](supabase/schema.sql) — tables, sample members
-2. **SQL Editor** → run [`supabase/migrations/002_apply_task_proposals.sql`](supabase/migrations/002_apply_task_proposals.sql) — transactional "apply proposals" function
-3. **Authentication → Users → Add user** → create your own account (tick *Auto Confirm User*); existing rows will be assigned to it
-4. **SQL Editor** → run [`supabase/migrations/003_auth_and_rls.sql`](supabase/migrations/003_auth_and_rls.sql) — per-user ownership and RLS policies
-5. **SQL Editor** → run [`supabase/migrations/004_ai_daily_quota.sql`](supabase/migrations/004_ai_daily_quota.sql) — daily AI quota
-6. *(Optional)* **Authentication → Sign In / Providers → Email** → turn off *Confirm email* so new users can sign in right after signing up
+1. **SQL Editor** → 运行 [`supabase/schema.sql`](supabase/schema.sql)：建表，并插入示例成员
+2. **SQL Editor** → 运行 [`supabase/migrations/002_apply_task_proposals.sql`](supabase/migrations/002_apply_task_proposals.sql)：创建事务性的"确认写入"函数
+3. **Authentication → Users → Add user** → 创建你自己的账号，勾选 *Auto Confirm User*。已有的数据会归到这个账号下
+4. **SQL Editor** → 运行 [`supabase/migrations/003_auth_and_rls.sql`](supabase/migrations/003_auth_and_rls.sql)：按用户隔离数据，并启用 RLS 策略
+5. **SQL Editor** → 运行 [`supabase/migrations/004_ai_daily_quota.sql`](supabase/migrations/004_ai_daily_quota.sql)：创建每日 AI 额度
+6. （可选）**Authentication → Sign In / Providers → Email** → 关闭 *Confirm email*，新用户注册后无需邮件确认即可直接登录
 
-Open http://localhost:3000 and sign up or sign in.
+然后打开 http://localhost:3000 注册或登录。
 
-### Deploy
+### 部署
 
-Import the repository in Vercel and set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `OPENAI_API_KEY` (optionally `OPENAI_MODEL`, `AI_DAILY_LIMIT`). In Supabase → **Authentication → URL Configuration**, set the Site URL to your Vercel domain and add `https://<your-domain>/auth/callback` to the redirect URLs.
+在 Vercel 导入本仓库，配置环境变量 `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`、`OPENAI_API_KEY`（可选：`OPENAI_MODEL`、`AI_DAILY_LIMIT`）。再到 Supabase → **Authentication → URL Configuration**，把 Site URL 设为你的 Vercel 域名，并在 Redirect URLs 中加入 `https://<你的域名>/auth/callback`。
 
-## Project structure
+## 目录结构
 
 ```
 app/
-  login/ signup/      Sign-in and sign-up pages
-  auth/               Auth server actions + email confirmation callback
-  tasks/              Task list & Kanban board + server actions
-  meetings/           Meetings CRUD, detail page, agent server actions
-  members/            Members with workload stats + server actions
+  login/ signup/      登录、注册页面
+  auth/               认证相关的 Server Actions，以及邮件确认回调
+  tasks/              任务列表与看板 + Server Actions
+  meetings/           会议增删改查、详情页、Agent 相关的 Server Actions
+  members/            成员管理与工作量统计 + Server Actions
 components/
-  ui/                 shadcn/ui components
+  ui/                 shadcn/ui 组件
   tasks/ meetings/ members/ auth/
 lib/
-  agent/              Prompt, tools, agent loop, date resolution, quota, tests
-  supabase/           SSR client that runs as the signed-in user
-  auth/               Safe post-login redirect
-proxy.ts              Session refresh + redirect to /login
-supabase/             Schema and migrations
+  agent/              提示词、工具、Agent 循环、日期换算、额度、测试
+  supabase/           以当前用户身份访问数据库的 SSR 客户端
+  auth/               登录后的安全跳转
+proxy.ts              刷新登录状态，未登录跳转到 /login
+supabase/             数据库结构和迁移脚本
 ```
 
-## Roadmap
+## 路线图
 
-- [x] Tasks, meetings and members CRUD
-- [x] AI agent that proposes tasks from transcripts
-- [x] Human review and transactional apply
-- [x] Kanban board with drag & drop
-- [x] Supabase Auth, per-user data, daily AI quota
-- [x] Deployed on Vercel
-- [ ] Evaluation set: score extraction accuracy across sample transcripts and models
-- [ ] Audio upload with speech-to-text
-- [ ] Due-date reminders by email
-- [ ] Shared team workspaces
+- [x] 任务、会议、成员的增删改查
+- [x] AI Agent 从会议记录中提议任务
+- [x] 人工确认，事务性写入
+- [x] 看板与拖拽
+- [x] Supabase Auth、按用户隔离数据、每日 AI 额度
+- [x] 部署到 Vercel
+- [ ] 评估集：用一批样例会议记录为提取准确率打分，并对比不同模型
+- [ ] 上传音频并自动转写
+- [ ] 截止日期邮件提醒
+- [ ] 团队共享工作区
 
-## License
+## 许可证
 
 [MIT](LICENSE)
