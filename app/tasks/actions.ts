@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase/server";
 import type { ActionResult, TaskStatus } from "@/lib/types";
 
 function revalidateAll() {
@@ -48,7 +48,7 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
   const parsed = parseTaskForm(formData);
   if (!parsed.ok) return parsed;
 
-  const { error } = await getSupabase().from("tasks").insert(parsed.data);
+  const { error } = await (await getSupabase()).from("tasks").insert(parsed.data);
 
   if (error) return { ok: false, error: error.message };
   revalidateAll();
@@ -59,7 +59,7 @@ export async function updateTask(id: string, formData: FormData): Promise<Action
   const parsed = parseTaskForm(formData);
   if (!parsed.ok) return parsed;
 
-  const { error } = await getSupabase()
+  const { error } = await (await getSupabase())
     .from("tasks")
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq("id", id);
@@ -72,7 +72,7 @@ export async function updateTask(id: string, formData: FormData): Promise<Action
 export async function updateTaskStatus(id: string, status: TaskStatus): Promise<ActionResult> {
   if (!statusSchema.safeParse(status).success) return { ok: false, error: "无效的状态" };
 
-  const { error } = await getSupabase()
+  const { error } = await (await getSupabase())
     .from("tasks")
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", id);
@@ -83,7 +83,7 @@ export async function updateTaskStatus(id: string, status: TaskStatus): Promise<
 }
 
 export async function deleteTask(id: string): Promise<ActionResult> {
-  const { error } = await getSupabase().from("tasks").delete().eq("id", id);
+  const { error } = await (await getSupabase()).from("tasks").delete().eq("id", id);
 
   if (error) return { ok: false, error: error.message };
   revalidateAll();

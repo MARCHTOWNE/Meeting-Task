@@ -40,5 +40,7 @@ export function NavLinks({ activePath = "" }: { activePath?: string }) {
 /** 根据当前网址高亮对应的导航项 */
 export function ActiveNavLinks() {
   const pathname = usePathname();
+  // 登录页不显示导航
+  if (pathname === "/login") return null;
   return <NavLinks activePath={pathname} />;
 }

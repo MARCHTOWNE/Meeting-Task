@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { ArrowLeft, CalendarDays, FileText, ListTodo, Pencil } from "lucide-react";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase/server";
 import { formatDate, todayInMelbourne } from "@/lib/task-meta";
 import type { Meeting, Member, Task } from "@/lib/types";
 import { DeleteMeetingButton } from "@/components/meetings/delete-meeting-button";
@@ -18,7 +18,7 @@ export default async function MeetingDetailPage({
 }) {
   await connection();
   const { id } = await params;
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
 
   const [meetingRes, tasksRes, membersRes] = await Promise.all([
     supabase.from("meetings").select("*").eq("id", id).maybeSingle(),

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types";
 
 const MAX_TRANSCRIPT_LENGTH = 20000;
@@ -29,7 +29,7 @@ export async function createMeeting(formData: FormData): Promise<ActionResult> {
   const parsed = parseMeetingForm(formData);
   if (!parsed.ok) return parsed;
 
-  const { data, error } = await getSupabase()
+  const { data, error } = await (await getSupabase())
     .from("meetings")
     .insert(parsed.data)
     .select("id")
@@ -44,7 +44,7 @@ export async function updateMeeting(id: string, formData: FormData): Promise<Act
   const parsed = parseMeetingForm(formData);
   if (!parsed.ok) return parsed;
 
-  const { error } = await getSupabase().from("meetings").update(parsed.data).eq("id", id);
+  const { error } = await (await getSupabase()).from("meetings").update(parsed.data).eq("id", id);
 
   if (error) return { ok: false, error: error.message };
   revalidatePath("/meetings", "layout");
@@ -52,7 +52,7 @@ export async function updateMeeting(id: string, formData: FormData): Promise<Act
 }
 
 export async function deleteMeeting(id: string): Promise<ActionResult> {
-  const { error } = await getSupabase().from("meetings").delete().eq("id", id);
+  const { error } = await (await getSupabase()).from("meetings").delete().eq("id", id);
 
   if (error) return { ok: false, error: error.message };
   revalidatePath("/meetings", "layout");

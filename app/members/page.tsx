@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { Users } from "lucide-react";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase/server";
 import type { Member, TaskStatus } from "@/lib/types";
 import { AddMemberButton } from "@/components/members/add-member-button";
 import { MemberCard, type MemberStats } from "@/components/members/member-card";
@@ -26,7 +26,7 @@ export default async function MembersPage() {
   await connection();
 
   // tasks(status)：通过 tasks.assignee_id 外键，把每个成员负责的任务状态一起查出来
-  const { data, error } = await getSupabase()
+  const { data, error } = await (await getSupabase())
     .from("members")
     .select("id, name, email, tasks(status)")
     .order("name");

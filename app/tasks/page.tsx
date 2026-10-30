@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { ClipboardList } from "lucide-react";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase/server";
 import { STATUSES, STATUS_META, todayInMelbourne } from "@/lib/task-meta";
 import type { Member, Task } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -25,7 +25,7 @@ export default async function TasksPage({
   await connection();
   const { view: viewParam } = await searchParams;
   const view: TaskView = viewParam === "board" ? "board" : "list";
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
 
   const [tasksRes, membersRes] = await Promise.all([
     supabase

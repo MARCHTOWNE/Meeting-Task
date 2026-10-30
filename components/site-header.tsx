@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
+import { UserMenu } from "@/components/auth/user-menu";
 import { ModeToggle } from "@/components/mode-toggle";
 import { ActiveNavLinks, NavLinks } from "@/components/nav-links";
 
@@ -20,7 +21,11 @@ export function SiteHeader() {
           <ActiveNavLinks />
         </Suspense>
 
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-1">
+          {/* 读取登录状态，放在 Suspense 里，不阻塞页面其他部分 */}
+          <Suspense>
+            <UserMenu />
+          </Suspense>
           <ModeToggle />
         </div>
       </div>

@@ -6,7 +6,7 @@ import { z } from "zod";
 import { extractTasks } from "@/lib/agent/extract-tasks";
 import { supabaseDataSource } from "@/lib/agent/supabase-source";
 import type { ExtractionResult } from "@/lib/agent/types";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase/server";
 
 /** 默认用最便宜的模型；可以在 .env.local 里用 OPENAI_MODEL 换成别的 */
 const DEFAULT_MODEL = "gpt-5-nano";
@@ -20,7 +20,8 @@ export async function extractTaskProposals(meetingId: string): Promise<ExtractRe
     return { ok: false, error: "没有配置 OPENAI_API_KEY，请在 .env.local 中添加" };
   }
 
-  const { data: meeting, error } = await getSupabase()
+  const supabase = await getSupabase();
+  const { data: meeting, error } = await supabase
     .from("meetings")
     .select("title, meeting_date, transcript")
     .eq("id", meetingId)
@@ -34,7 +35,7 @@ export async function extractTaskProposals(meetingId: string): Promise<ExtractRe
     const result = await extractTasks({
       model: openai(modelName),
       modelName,
-      dataSource: supabaseDataSource(),
+      dataSource: supabaseDataSource(supabase),
       meeting,
       // 推理强度调低：速度更快、费用更低，对这类提取任务足够
       providerOptions: { openai: { reasoningEffort: "low" } },
@@ -105,7 +106,7 @@ export async function applyProposals(input: ApplyInput): Promise<ApplyResponse> 
   const { meetingId, summary, creates, updates } = parsed.data;
 
   // 调用数据库函数，所有新建和更新在同一个事务里完成：要么全部成功，要么全部不写入
-  const { data, error } = await getSupabase().rpc("apply_task_proposals", {
+  const { data, error } = await (await getSupabase()).rpc("apply_task_proposals", {
     p_meeting_id: meetingId,
     p_summary: summary,
     p_creates: creates,
@@ -117,7 +118,7 @@ export async function applyProposals(input: ApplyInput): Promise<ApplyResponse> 
     if (error.code === "PGRST202") {
       return {
         ok: false,
-        error: "数据库缺少 apply_task_proposals 函数，请在 Supabase SQL Editor 运行 supabase/migrations/002_apply_task_proposals.sql",
+        error: "数据库缺少 apply_task_proposals 函数，请在 Supabase SQL Editor 运行 supabase/migrations 里的 SQL",
       };
     }
     return { ok: false, error: `写入失败，没有任何数据被修改：${error.message}` };
