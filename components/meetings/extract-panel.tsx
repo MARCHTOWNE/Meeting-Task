@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { applyProposals, extractTaskProposals } from "@/app/meetings/agent-actions";
 import { toApplyInput } from "@/lib/agent/to-apply-input";
 import type { ExtractionResult, Proposal } from "@/lib/agent/types";
+import type { QuotaInfo } from "@/lib/agent/quota";
 import type { Member } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +26,7 @@ export function ExtractPanel({
 }: {
   meetingId: string;
   members: Member[];
-  quota: { limit: number; remaining: number };
+  quota: QuotaInfo;
 }) {
   const [remaining, setRemaining] = useState(quota.remaining);
   const [extracting, startExtract] = useTransition();
@@ -40,7 +41,7 @@ export function ExtractPanel({
   function run() {
     startExtract(async () => {
       const res = await extractTaskProposals(meetingId);
-      if (res.remaining !== undefined) setRemaining(res.remaining);
+      if (res.remaining !== undefined && Number.isFinite(res.remaining)) setRemaining(res.remaining);
       if (!res.ok) {
         toast.error(res.error);
         return;
@@ -92,7 +93,7 @@ export function ExtractPanel({
             AI 会读取会议记录、查看成员和已有任务，提议新建或更新任务。你确认后才会写入。
           </CardDescription>
           <CardAction>
-            <Button size="sm" onClick={run} disabled={busy || remaining === 0}>
+            <Button size="sm" onClick={run} disabled={busy || (!quota.unlimited && remaining === 0)}>
               {extracting ? <Loader2 className="animate-spin" /> : result ? <RotateCcw /> : <Sparkles />}
               {extracting ? "分析中…" : result ? "重新提取" : "开始提取"}
             </Button>
@@ -101,8 +102,15 @@ export function ExtractPanel({
         {!extracting && (
           <CardContent>
             <p className="text-xs text-muted-foreground">
-              今日剩余 <span className="font-medium text-foreground tabular-nums">{remaining}</span> / {quota.limit} 次
-              {remaining === 0 && "，24 小时后恢复"}
+              {quota.unlimited ? (
+                "管理员账号，不限次数"
+              ) : (
+                <>
+                  {quota.windowHours ? `每 ${quota.windowHours} 小时可用 ${quota.limit} 次，` : "免费体验次数："}
+                  剩余 <span className="font-medium text-foreground tabular-nums">{remaining}</span> / {quota.limit} 次
+                  {remaining === 0 && (quota.windowHours ? "，稍后恢复" : "，已用完")}
+                </>
+              )}
             </p>
           </CardContent>
         )}
