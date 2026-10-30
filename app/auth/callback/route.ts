@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { safeNext } from "@/lib/auth/safe-next";
 import { getSupabase } from "@/lib/supabase/server";
 
-/** 用户点击注册确认邮件里的链接后回到这里：用一次性 code 换取登录状态 */
+/** 如果邮件模板用的是确认链接（而不是验证码），用户点击后回到这里：用一次性 code 换取登录状态 */
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
   const code = searchParams.get("code");

@@ -4,7 +4,7 @@
 
 **中文** | [English](README.en.md)
 
-**在线体验：** https://meeting-task.vercel.app （任意邮箱注册即可。每个账号的数据相互隔离，每天可以使用 10 次 AI 提取）
+**在线体验：** https://meeting-task.vercel.app （用邮箱注册并输入验证码即可。每个账号的数据相互隔离，每天可以使用 10 次 AI 提取）
 
 [![CI](https://github.com/MARCHTOWNE/Meeting-Task/actions/workflows/ci.yml/badge.svg)](https://github.com/MARCHTOWNE/Meeting-Task/actions/workflows/ci.yml)
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-black)
@@ -22,7 +22,7 @@
 - **人工确认**：可以勾选、取消或修改每条提议（标题、负责人、截止日期、优先级），确认后在**一个事务**里统一写入。会议摘要也会一并保存。
 - **任务管理**：支持列表和**看板**两种视图。看板可以用鼠标或**键盘**拖动卡片，并且有乐观更新。任务可以新建、编辑和删除，逾期的任务会高亮显示，从会议中提取的任务可以跳回来源会议。
 - **会议和成员管理**：完整的增删改查。成员卡片会显示每个人手上待办、进行中、已完成的任务数量。
-- **账号系统**：基于 Supabase Auth 的注册和登录，每个用户只能看到自己的数据。
+- **账号系统**：基于 Supabase Auth 的注册和登录，注册时需要输入邮箱收到的 6 位验证码，每个用户只能看到自己的数据。
 - **每日 AI 额度**：每个账号每 24 小时最多提取 10 次（次数可以配置），开放注册也不会让 OpenAI 费用失控。
 - 支持深色模式和响应式布局，组件符合无障碍规范。
 
@@ -142,7 +142,10 @@ npm run dev
 3. **Authentication → Users → Add user** → 创建你自己的账号，勾选 *Auto Confirm User*。已有的数据会归到这个账号下
 4. **SQL Editor** → 运行 [`supabase/migrations/003_auth_and_rls.sql`](supabase/migrations/003_auth_and_rls.sql)：按用户隔离数据，并启用 RLS 策略
 5. **SQL Editor** → 运行 [`supabase/migrations/004_ai_daily_quota.sql`](supabase/migrations/004_ai_daily_quota.sql)：创建每日 AI 额度
-6. （可选）**Authentication → Sign In / Providers → Email** → 关闭 *Confirm email*，新用户注册后无需邮件确认即可直接登录
+6. **配置邮箱验证**（注册时发送 6 位验证码）：
+   - **Authentication → Emails → SMTP Settings**：开启自定义 SMTP。Supabase 自带的邮件服务只能发给项目成员，每小时 2 封，不能用于真实用户。可以使用 QQ 邮箱（`smtp.qq.com`，端口 465，密码填邮箱设置里生成的授权码）或其他 SMTP 服务
+   - **Authentication → Emails → Templates → Confirm sign up**：使用 [`supabase/email-templates/confirm-signup.html`](supabase/email-templates/confirm-signup.html)，邮件里显示 `{{ .Token }}` 验证码
+   - **Authentication → Sign In / Providers → Email**：开启 *Confirm email*
 
 然后打开 http://localhost:3000 注册或登录。
 
@@ -154,7 +157,7 @@ npm run dev
 
 ```
 app/
-  login/ signup/      登录、注册页面
+  login/ signup/ verify/   登录、注册、邮箱验证页面
   auth/               认证相关的 Server Actions，以及邮件确认回调
   tasks/              任务列表与看板 + Server Actions
   meetings/           会议增删改查、详情页、Agent 相关的 Server Actions

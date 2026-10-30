@@ -4,7 +4,7 @@
 
 [中文](README.md) | **English**
 
-**Live demo:** https://meeting-task.vercel.app — sign up with any email (each account has its own data and 10 AI extractions per day).
+**Live demo:** https://meeting-task.vercel.app — sign up with your email and a verification code (each account has its own data and 10 AI extractions per day).
 
 [![CI](https://github.com/MARCHTOWNE/Meeting-Task/actions/workflows/ci.yml/badge.svg)](https://github.com/MARCHTOWNE/Meeting-Task/actions/workflows/ci.yml)
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-black)
@@ -22,7 +22,7 @@ Paste a meeting transcript. An AI agent reads it, looks up your team members and
 - **Human review** — tick, untick or edit each proposal (title, owner, due date, priority), then apply them all in one transaction; the meeting summary is saved with the meeting
 - **Tasks** — list and **Kanban board** views; drag cards between columns with the mouse *or keyboard*, with optimistic updates; create, edit, delete; overdue highlighting; link back to the source meeting
 - **Meetings** and **Members** — full CRUD; members show their todo / in-progress / done workload
-- **Accounts** — sign up / sign in with Supabase Auth; every user only sees their own data
+- **Accounts** — sign up with a 6-digit email verification code, sign in with Supabase Auth; every user only sees their own data
 - **Daily AI quota** — 10 extractions per account per 24 hours (configurable), so open sign-up cannot run up the OpenAI bill
 - Dark mode, responsive layout, accessible components
 
@@ -142,7 +142,10 @@ Set up the database in the Supabase dashboard:
 3. **Authentication → Users → Add user** → create your own account (tick *Auto Confirm User*); existing rows will be assigned to it
 4. **SQL Editor** → run [`supabase/migrations/003_auth_and_rls.sql`](supabase/migrations/003_auth_and_rls.sql) — per-user ownership and RLS policies
 5. **SQL Editor** → run [`supabase/migrations/004_ai_daily_quota.sql`](supabase/migrations/004_ai_daily_quota.sql) — daily AI quota
-6. *(Optional)* **Authentication → Sign In / Providers → Email** → turn off *Confirm email* so new users can sign in right after signing up
+6. **Email verification** (6-digit code at sign-up):
+   - **Authentication → Emails → SMTP Settings** → enable custom SMTP (the built-in sender only delivers to project members, 2 emails/hour)
+   - **Authentication → Emails → Templates → Confirm sign up** → use [`supabase/email-templates/confirm-signup.html`](supabase/email-templates/confirm-signup.html), which shows `{{ .Token }}`
+   - **Authentication → Sign In / Providers → Email** → turn on *Confirm email*
 
 Open http://localhost:3000 and sign up or sign in.
 

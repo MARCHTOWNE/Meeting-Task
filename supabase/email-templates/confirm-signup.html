@@ -1,0 +1,17 @@
+<!--
+  Supabase → Authentication → Emails → Templates → "Confirm sign up"
+  主题（Subject）：Meeting Tasks 注册验证码：{{ .Token }}
+  把下面的 HTML 粘贴到 Message body。{{ .Token }} 会被替换成 6 位验证码。
+-->
+<div style="max-width:480px;margin:0 auto;padding:32px 24px;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;color:#171717">
+  <h2 style="margin:0 0 16px;font-size:20px">验证你的邮箱</h2>
+  <p style="margin:0 0 24px;line-height:1.6;color:#525252">
+    你正在注册 Meeting Tasks。请在注册页面输入下面的验证码完成验证：
+  </p>
+  <div style="margin:0 0 24px;padding:16px;border-radius:12px;background:#f5f5f5;text-align:center;font-size:32px;font-weight:600;letter-spacing:8px;font-family:Menlo,Consolas,monospace">
+    {{ .Token }}
+  </div>
+  <p style="margin:0;line-height:1.6;font-size:13px;color:#737373">
+    验证码 1 小时内有效。如果不是你本人操作，请忽略这封邮件。
+  </p>
+</div>

@@ -28,7 +28,7 @@ export async function proxy(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const signedIn = Boolean(data?.claims?.sub);
   const { pathname, search } = request.nextUrl;
-  const isAuthPage = pathname === "/login" || pathname === "/signup";
+  const isAuthPage = pathname === "/login" || pathname === "/signup" || pathname === "/verify";
   const isPublic = isAuthPage || pathname.startsWith("/auth/");
 
   if (!signedIn && !isPublic) {

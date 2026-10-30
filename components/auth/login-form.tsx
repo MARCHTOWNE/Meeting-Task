@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const initialState: SignInState = { error: null, email: "" };
+const initialState: SignInState = { error: null, email: "", unverified: false };
 
 export function LoginForm() {
   const params = useSearchParams();
@@ -50,6 +50,14 @@ export function LoginForm() {
         <p role="alert" className="flex items-center gap-2 text-sm text-destructive">
           <CircleAlert className="size-4" />
           {state.error}
+          {state.unverified && (
+            <Link
+              href={`/verify?email=${encodeURIComponent(state.email)}&next=${encodeURIComponent(next)}&resend=1`}
+              className="font-medium underline underline-offset-4"
+            >
+              去验证
+            </Link>
+          )}
         </p>
       )}
 

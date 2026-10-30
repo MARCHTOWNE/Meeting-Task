@@ -9,7 +9,7 @@ describe("safeNext", () => {
     expect(safeNext(input)).toBe(expected);
   });
 
-  it.each(["https://evil.com", "//evil.com", "/\\evil.com", "javascript:alert(1)", "/login", "/signup", "", null, undefined])(
+  it.each(["https://evil.com", "//evil.com", "/\\evil.com", "javascript:alert(1)", "/login", "/signup", "/verify?email=a", "", null, undefined])(
     "falls back to /tasks for %s",
     (input) => {
       expect(safeNext(input)).toBe("/tasks");

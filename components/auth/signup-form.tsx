@@ -3,30 +3,17 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { CircleAlert, Loader2, MailCheck, UserPlus } from "lucide-react";
+import { CircleAlert, Loader2, UserPlus } from "lucide-react";
 import { type SignUpState, signUp } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const initialState: SignUpState = { error: null, email: "", checkEmail: false };
+const initialState: SignUpState = { error: null, email: "" };
 
 export function SignupForm() {
   const next = useSearchParams().get("next") ?? "/tasks";
   const [state, formAction, pending] = useActionState(signUp, initialState);
-
-  if (state.checkEmail) {
-    return (
-      <div className="grid gap-3 text-center">
-        <MailCheck className="mx-auto size-10 text-emerald-600" />
-        <p className="font-medium">请查收确认邮件</p>
-        <p className="text-sm text-muted-foreground">
-          我们给 <span className="font-medium text-foreground">{state.email}</span>{" "}
-          发送了一封确认邮件，点击邮件里的链接即可完成注册并登录。
-        </p>
-      </div>
-    );
-  }
 
   return (
     <form action={formAction} className="grid gap-4">
@@ -35,6 +22,7 @@ export function SignupForm() {
       <div className="grid gap-2">
         <Label htmlFor="email">邮箱</Label>
         <Input id="email" name="email" type="email" autoComplete="email" defaultValue={state.email} required autoFocus />
+        <p className="text-xs text-muted-foreground">注册后会向这个邮箱发送 6 位验证码</p>
       </div>
 
       <div className="grid gap-2">
