@@ -1,13 +1,17 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { ArrowLeft } from "lucide-react";
 import { createMeeting } from "@/app/meetings/actions";
 import { todayInMelbourne } from "@/lib/task-meta";
 import { MeetingForm } from "@/components/meetings/meeting-form";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default async function NewMeetingPage() {
-  await connection();
-
+/**
+ * 页面本身是静态的：标题和返回链接会被预渲染，点击"新建会议"时立刻显示。
+ * 只有表单需要"今天的日期"（请求时才能确定），所以单独放进 Suspense 里。
+ */
+export default function NewMeetingPage() {
   return (
     <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6">
       <div className="space-y-2">
@@ -24,12 +28,22 @@ export default async function NewMeetingPage() {
         </p>
       </div>
 
-      <MeetingForm
-        action={createMeeting}
-        defaultDate={todayInMelbourne()}
-        cancelHref="/meetings"
-        submitLabel="保存会议"
-      />
+      <Suspense fallback={<Skeleton className="h-[520px] rounded-xl" />}>
+        <NewMeetingForm />
+      </Suspense>
     </main>
+  );
+}
+
+async function NewMeetingForm() {
+  await connection();
+
+  return (
+    <MeetingForm
+      action={createMeeting}
+      defaultDate={todayInMelbourne()}
+      cancelHref="/meetings"
+      submitLabel="保存会议"
+    />
   );
 }
