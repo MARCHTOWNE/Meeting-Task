@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { CalendarDays, ChevronRight, ListTodo, MessagesSquare, Plus } from "lucide-react";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/task-meta";
 import type { Meeting } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +20,7 @@ type MeetingRow = Meeting & { tasks: { count: number }[] };
 export default async function MeetingsPage() {
   await connection();
 
-  const { data, error } = await getSupabase()
+  const { data, error } = await (await getSupabase())
     .from("meetings")
     .select("*, tasks(count)")
     .order("meeting_date", { ascending: false })

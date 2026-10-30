@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -34,7 +34,7 @@ export async function createMember(formData: FormData): Promise<ActionResult> {
   const parsed = parseMemberForm(formData);
   if (!parsed.ok) return parsed;
 
-  const { error } = await getSupabase().from("members").insert(parsed.data);
+  const { error } = await (await getSupabase()).from("members").insert(parsed.data);
   if (error) return { ok: false, error: friendlyError(error) };
 
   revalidateAll();
@@ -45,7 +45,7 @@ export async function updateMember(id: string, formData: FormData): Promise<Acti
   const parsed = parseMemberForm(formData);
   if (!parsed.ok) return parsed;
 
-  const { error } = await getSupabase().from("members").update(parsed.data).eq("id", id);
+  const { error } = await (await getSupabase()).from("members").update(parsed.data).eq("id", id);
   if (error) return { ok: false, error: friendlyError(error) };
 
   revalidateAll();
@@ -53,7 +53,7 @@ export async function updateMember(id: string, formData: FormData): Promise<Acti
 }
 
 export async function deleteMember(id: string): Promise<ActionResult> {
-  const { error } = await getSupabase().from("members").delete().eq("id", id);
+  const { error } = await (await getSupabase()).from("members").delete().eq("id", id);
   if (error) return { ok: false, error: friendlyError(error) };
 
   revalidateAll();

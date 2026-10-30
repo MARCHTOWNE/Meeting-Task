@@ -18,7 +18,16 @@ import {
 } from "@/components/ui/card";
 import { ProposalCard } from "@/components/meetings/proposal-card";
 
-export function ExtractPanel({ meetingId, members }: { meetingId: string; members: Member[] }) {
+export function ExtractPanel({
+  meetingId,
+  members,
+  quota,
+}: {
+  meetingId: string;
+  members: Member[];
+  quota: { limit: number; remaining: number };
+}) {
+  const [remaining, setRemaining] = useState(quota.remaining);
   const [extracting, startExtract] = useTransition();
   const [applying, startApply] = useTransition();
   const [result, setResult] = useState<ExtractionResult | null>(null);
@@ -31,6 +40,7 @@ export function ExtractPanel({ meetingId, members }: { meetingId: string; member
   function run() {
     startExtract(async () => {
       const res = await extractTaskProposals(meetingId);
+      if (res.remaining !== undefined) setRemaining(res.remaining);
       if (!res.ok) {
         toast.error(res.error);
         return;
@@ -82,12 +92,20 @@ export function ExtractPanel({ meetingId, members }: { meetingId: string; member
             AI 会读取会议记录、查看成员和已有任务，提议新建或更新任务。你确认后才会写入。
           </CardDescription>
           <CardAction>
-            <Button size="sm" onClick={run} disabled={busy}>
+            <Button size="sm" onClick={run} disabled={busy || remaining === 0}>
               {extracting ? <Loader2 className="animate-spin" /> : result ? <RotateCcw /> : <Sparkles />}
               {extracting ? "分析中…" : result ? "重新提取" : "开始提取"}
             </Button>
           </CardAction>
         </CardHeader>
+        {!extracting && (
+          <CardContent>
+            <p className="text-xs text-muted-foreground">
+              今日剩余 <span className="font-medium text-foreground tabular-nums">{remaining}</span> / {quota.limit} 次
+              {remaining === 0 && "，24 小时后恢复"}
+            </p>
+          </CardContent>
+        )}
         {extracting && (
           <CardContent>
             <p className="flex items-center gap-2 text-sm text-muted-foreground">

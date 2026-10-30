@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { ArrowLeft } from "lucide-react";
 import { updateMeeting } from "@/app/meetings/actions";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase/server";
 import type { Meeting } from "@/lib/types";
 import { MeetingForm } from "@/components/meetings/meeting-form";
 
@@ -15,7 +15,7 @@ export default async function EditMeetingPage({
   await connection();
   const { id } = await params;
 
-  const { data, error } = await getSupabase()
+  const { data, error } = await (await getSupabase())
     .from("meetings")
     .select("*")
     .eq("id", id)
