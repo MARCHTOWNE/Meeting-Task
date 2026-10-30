@@ -4,6 +4,7 @@ import { openai } from "@ai-sdk/openai";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { extractTasks } from "@/lib/agent/extract-tasks";
+import { claimQuota, dailyLimit } from "@/lib/agent/quota";
 import { supabaseDataSource } from "@/lib/agent/supabase-source";
 import type { ExtractionResult } from "@/lib/agent/types";
 import { getSupabase } from "@/lib/supabase/server";
@@ -12,8 +13,8 @@ import { getSupabase } from "@/lib/supabase/server";
 const DEFAULT_MODEL = "gpt-5-nano";
 
 export type ExtractResponse =
-  | { ok: true; result: ExtractionResult }
-  | { ok: false; error: string };
+  | { ok: true; result: ExtractionResult; remaining: number }
+  | { ok: false; error: string; remaining?: number };
 
 export async function extractTaskProposals(meetingId: string): Promise<ExtractResponse> {
   if (!process.env.OPENAI_API_KEY) {
@@ -29,6 +30,22 @@ export async function extractTaskProposals(meetingId: string): Promise<ExtractRe
 
   if (error || !meeting) return { ok: false, error: "找不到这场会议" };
 
+  // 先占用一次额度再调用模型：失败的调用也算一次，防止有人反复点击刷费用
+  let remaining: number | null;
+  try {
+    remaining = await claimQuota(supabase);
+  } catch (e) {
+    console.error("[claimQuota]", e);
+    return { ok: false, error: "无法检查今日额度，请确认已运行 supabase/migrations/004_ai_daily_quota.sql" };
+  }
+  if (remaining === null) {
+    return {
+      ok: false,
+      error: `今天的 AI 提取次数已用完（每 24 小时 ${dailyLimit()} 次），请稍后再试`,
+      remaining: 0,
+    };
+  }
+
   const modelName = process.env.OPENAI_MODEL || DEFAULT_MODEL;
 
   try {
@@ -40,10 +57,10 @@ export async function extractTaskProposals(meetingId: string): Promise<ExtractRe
       // 推理强度调低：速度更快、费用更低，对这类提取任务足够
       providerOptions: { openai: { reasoningEffort: "low" } },
     });
-    return { ok: true, result };
+    return { ok: true, result, remaining };
   } catch (e) {
     console.error("[extractTaskProposals]", e);
-    return { ok: false, error: friendlyAiError(e) };
+    return { ok: false, error: friendlyAiError(e), remaining };
   }
 }
 

@@ -5,5 +5,5 @@
 export function safeNext(value: unknown) {
   const next = typeof value === "string" ? value : "";
   const isRelative = next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\");
-  return isRelative && !next.startsWith("/login") ? next : "/tasks";
+  return isRelative && !next.startsWith("/login") && !next.startsWith("/signup") ? next : "/tasks";
 }

@@ -5,7 +5,7 @@ import { supabaseEnv } from "@/lib/supabase/env";
 /**
  * 每个请求进来时：
  * 1. 刷新 Supabase 登录状态（access token 过期时自动续期，并写回 cookie）
- * 2. 没登录的人访问任何页面都跳到 /login；已登录的人访问 /login 跳到任务页
+ * 2. 没登录的人访问任何页面都跳到 /login；已登录的人访问登录、注册页跳到任务页
  *
  * 这里只做"快速判断"。真正的权限控制在数据库的 RLS 里，所以即使绕过这一步也读不到数据。
  */
@@ -28,14 +28,15 @@ export async function proxy(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const signedIn = Boolean(data?.claims?.sub);
   const { pathname, search } = request.nextUrl;
-  const isLoginPage = pathname === "/login";
+  const isAuthPage = pathname === "/login" || pathname === "/signup";
+  const isPublic = isAuthPage || pathname.startsWith("/auth/");
 
-  if (!signedIn && !isLoginPage) {
+  if (!signedIn && !isPublic) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname + search);
     return NextResponse.redirect(loginUrl);
   }
-  if (signedIn && isLoginPage) {
+  if (signedIn && isAuthPage) {
     return NextResponse.redirect(new URL("/tasks", request.url));
   }
   return response;

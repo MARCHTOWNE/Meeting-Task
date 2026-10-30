@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CircleAlert, Loader2, LogIn } from "lucide-react";
 import { type SignInState, signIn } from "@/app/auth/actions";
@@ -11,7 +12,9 @@ import { Label } from "@/components/ui/label";
 const initialState: SignInState = { error: null, email: "" };
 
 export function LoginForm() {
-  const next = useSearchParams().get("next") ?? "/tasks";
+  const params = useSearchParams();
+  const next = params.get("next") ?? "/tasks";
+  const confirmFailed = params.get("error") === "confirm";
   const [state, formAction, pending] = useActionState(signIn, initialState);
 
   return (
@@ -36,6 +39,13 @@ export function LoginForm() {
         <Input id="password" name="password" type="password" autoComplete="current-password" required />
       </div>
 
+      {confirmFailed && !state.error && (
+        <p role="alert" className="flex items-center gap-2 text-sm text-destructive">
+          <CircleAlert className="size-4" />
+          确认链接无效或已过期，请重新登录或注册
+        </p>
+      )}
+
       {state.error && (
         <p role="alert" className="flex items-center gap-2 text-sm text-destructive">
           <CircleAlert className="size-4" />
@@ -48,7 +58,12 @@ export function LoginForm() {
         登录
       </Button>
 
-      <p className="text-center text-xs text-muted-foreground">账号由管理员在 Supabase 中创建，暂不开放注册。</p>
+      <p className="text-center text-sm text-muted-foreground">
+        还没有账号？{" "}
+        <Link href={`/signup?next=${encodeURIComponent(next)}`} className="font-medium text-foreground underline-offset-4 hover:underline">
+          注册
+        </Link>
+      </p>
     </form>
   );
 }

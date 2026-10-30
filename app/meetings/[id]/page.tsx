@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { ArrowLeft, CalendarDays, FileText, ListTodo, Pencil } from "lucide-react";
+import { remainingQuota } from "@/lib/agent/quota";
 import { getSupabase } from "@/lib/supabase/server";
 import { formatDate, todayInMelbourne } from "@/lib/task-meta";
 import type { Meeting, Member, Task } from "@/lib/types";
@@ -20,7 +21,7 @@ export default async function MeetingDetailPage({
   const { id } = await params;
   const supabase = await getSupabase();
 
-  const [meetingRes, tasksRes, membersRes] = await Promise.all([
+  const [meetingRes, tasksRes, membersRes, quota] = await Promise.all([
     supabase.from("meetings").select("*").eq("id", id).maybeSingle(),
     supabase
       .from("tasks")
@@ -28,6 +29,7 @@ export default async function MeetingDetailPage({
       .eq("meeting_id", id)
       .order("created_at", { ascending: true }),
     supabase.from("members").select("id, name, email").order("name"),
+    remainingQuota(supabase),
   ]);
 
   if (meetingRes.error || !meetingRes.data) notFound();
@@ -90,7 +92,7 @@ export default async function MeetingDetailPage({
         </Card>
 
         <div className="space-y-4">
-          <ExtractPanel meetingId={meeting.id} members={members} />
+          <ExtractPanel meetingId={meeting.id} members={members} quota={quota} />
 
           <div className="space-y-3">
             <h2 className="flex items-center gap-2 font-medium">

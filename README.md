@@ -13,7 +13,8 @@ Paste a meeting transcript, and an AI agent reads it, checks existing tasks and 
 - **Members** — manage team members, see each person's todo / in-progress / done workload
 - **Human review** — tick, untick or edit each proposal (title, owner, due date, priority) before writing; the meeting summary is saved with the meeting
 - **AI task extraction** — a tool-calling agent reads the transcript, looks up members and existing tasks, and proposes new tasks or updates (e.g. "mark as done"), each with the source quote it came from. Invalid tool calls are rejected with an error message so the model can correct itself, and the full execution trace is shown in the UI
-- **Accounts** — email / password sign-in with Supabase Auth; every user only sees their own members, meetings and tasks
+- **Accounts** — email / password sign-up and sign-in with Supabase Auth; every user only sees their own members, meetings and tasks
+- **Daily AI quota** — each account can run a limited number of extractions per 24 hours (default 10), so open sign-up cannot run up the OpenAI bill
 - Dark mode, responsive layout, accessible components
 
 ## Tech stack
@@ -32,6 +33,7 @@ Paste a meeting transcript, and an AI agent reads it, checks existing tasks and 
 
 - **Row Level Security per user.** Every table has a `user_id` and an "owner only" RLS policy. The server talks to Postgres *as the signed-in user* (Supabase SSR client + session cookie), never with an admin key, so even a missing filter in app code cannot leak another user's data. The agent's tools and the `apply_task_proposals` function run under the same policies.
 - **Same-account foreign keys.** Foreign keys ignore RLS, so tasks reference members and meetings through composite keys `(id, user_id)` — a task can never point at another account's member.
+- **Race-free quota.** `claim_ai_extraction()` checks and records usage in one Postgres function guarded by a per-user advisory lock, so parallel clicks cannot slip past the limit. Usage rows are insert-only for users (no update/delete policy), so a quota cannot be reset from the client. A use is claimed *before* calling the model, so failed calls count too.
 - **Auth checks in layers.** `proxy.ts` refreshes the session and redirects signed-out visitors to `/login` (fast check); the database enforces access (real check). The session is verified with `getClaims()` (JWT signature), and the post-login `?next=` redirect only accepts relative paths to prevent open redirects.
 - **Human-in-the-loop agent.** Read tools (search tasks, list members) run automatically; write operations are only *proposed* and must be confirmed by the user.
 - **Validated tool calls.** Every agent tool validates its input (dates, member ids, task ids, duplicates). Errors are returned to the model instead of thrown, so it can fix the call in the next step. The loop is capped at 12 steps to bound latency and cost.
@@ -62,18 +64,19 @@ Set up the database in the Supabase dashboard:
 
 1. **SQL Editor** → run [`supabase/schema.sql`](supabase/schema.sql) — tables, sample members
 2. **SQL Editor** → run [`supabase/migrations/002_apply_task_proposals.sql`](supabase/migrations/002_apply_task_proposals.sql) — transactional "apply proposals" function
-3. **Authentication → Users → Add user** → create your account (tick *Auto Confirm User*)
+3. **Authentication → Users → Add user** → create your own account (tick *Auto Confirm User*); existing rows will be assigned to it
 4. **SQL Editor** → run [`supabase/migrations/003_auth_and_rls.sql`](supabase/migrations/003_auth_and_rls.sql) — per-user ownership and RLS policies
-5. **Authentication → Sign In / Providers** → turn off *Allow new users to sign up*, so only accounts you create can use the app (and your OpenAI credit)
+5. **SQL Editor** → run [`supabase/migrations/004_ai_daily_quota.sql`](supabase/migrations/004_ai_daily_quota.sql) — daily AI quota
+6. *(Optional)* **Authentication → Sign In / Providers → Email** → turn off *Confirm email* so new users can sign in right after signing up (Supabase's built-in email service only sends a few emails per hour)
 
-Then open http://localhost:3000 and sign in.
+Then open http://localhost:3000, sign up or sign in.
 
 ## Project structure
 
 ```
 app/
-  login/          # Sign-in page
-  auth/           # Sign-in / sign-out server actions
+  login/ signup/  # Sign-in and sign-up pages
+  auth/           # Auth server actions + email confirmation callback
   tasks/          # Task list & board + server actions
   meetings/       # Meeting list, create, detail, edit + server actions
   members/        # Member list with workload stats + server actions
