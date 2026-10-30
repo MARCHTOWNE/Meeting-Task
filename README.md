@@ -8,7 +8,7 @@ Paste a meeting transcript, and an AI agent reads it, checks existing tasks and 
 
 ## Features
 
-- **Tasks** — create, update status, delete; priority, assignee, due date and overdue highlighting
+- **Tasks** — list and **Kanban board** views; drag cards between columns (mouse or keyboard) with optimistic updates; create, edit and delete; priority, assignee, due date, overdue highlighting and a link back to the source meeting
 - **Meetings** — store meeting transcripts, view tasks linked to each meeting
 - **Members** — manage team members, see each person's todo / in-progress / done workload
 - **Human review** — tick, untick or edit each proposal (title, owner, due date, priority) before writing; the meeting summary is saved with the meeting
@@ -22,7 +22,7 @@ Paste a meeting transcript, and an AI agent reads it, checks existing tasks and 
 | Framework | [Next.js 16](https://nextjs.org) (App Router, Server Components, Server Actions) |
 | Language | TypeScript |
 | Database | [Supabase](https://supabase.com) (PostgreSQL, Row Level Security) |
-| UI | [shadcn/ui](https://ui.shadcn.com) + Radix UI, Tailwind CSS v4, Lucide icons |
+| UI | [shadcn/ui](https://ui.shadcn.com) + Radix UI, Tailwind CSS v4, Lucide icons, dnd-kit (drag & drop) |
 | AI | [Vercel AI SDK](https://ai-sdk.dev) + OpenAI |
 | Testing | Vitest, with a scripted mock model to test the agent loop deterministically |
 | CI | GitHub Actions (lint, type-check, unit tests, build) |
@@ -87,7 +87,7 @@ supabase/         # Database schema
 - [x] Team member management
 - [x] AI agent: extract task proposals from transcripts
 - [x] Review & confirm proposals
-- [ ] Kanban board
+- [x] Kanban board
 - [ ] Deploy to Vercel
 - [ ] Auth (Supabase Auth) and per-user data
 - [ ] Agent evaluation set
