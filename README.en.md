@@ -4,7 +4,7 @@
 
 [中文](README.md) | **English**
 
-**Live demo:** https://meeting-task.vercel.app — sign up with any email (each account has its own data and 10 AI extractions per day).
+**Live demo:** https://meeting-task.vercel.app — sign up with any email (each account has its own data and one free AI extraction).
 
 [![CI](https://github.com/MARCHTOWNE/Meeting-Task/actions/workflows/ci.yml/badge.svg)](https://github.com/MARCHTOWNE/Meeting-Task/actions/workflows/ci.yml)
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-black)
@@ -23,7 +23,7 @@ Paste a meeting transcript. An AI agent reads it, looks up your team members and
 - **Tasks** — list and **Kanban board** views; drag cards between columns with the mouse *or keyboard*, with optimistic updates; create, edit, delete; overdue highlighting; link back to the source meeting
 - **Meetings** and **Members** — full CRUD; members show their todo / in-progress / done workload
 - **Accounts** — sign up / sign in with Supabase Auth; every user only sees their own data
-- **Daily AI quota** — 10 extractions per account per 24 hours (configurable), so open sign-up cannot run up the OpenAI bill
+- **AI quota** — one free extraction per account by default (limit and optional time window are configurable; admin emails are unlimited), so open sign-up cannot run up the OpenAI bill
 - Dark mode, responsive layout, accessible components
 
 | Kanban board | Dark mode |
@@ -40,7 +40,7 @@ sequenceDiagram
     participant DB as Postgres (RLS)
 
     User->>App: Click "开始提取"
-    App->>DB: claim_ai_extraction() — atomic daily quota
+    App->>DB: claim_ai_extraction() — atomic quota check
     App->>LLM: system prompt + calendar + transcript + tools
     loop up to 12 steps
         LLM->>App: tool call
@@ -141,14 +141,14 @@ Set up the database in the Supabase dashboard:
 2. **SQL Editor** → run [`supabase/migrations/002_apply_task_proposals.sql`](supabase/migrations/002_apply_task_proposals.sql) — transactional "apply proposals" function
 3. **Authentication → Users → Add user** → create your own account (tick *Auto Confirm User*); existing rows will be assigned to it
 4. **SQL Editor** → run [`supabase/migrations/003_auth_and_rls.sql`](supabase/migrations/003_auth_and_rls.sql) — per-user ownership and RLS policies
-5. **SQL Editor** → run [`supabase/migrations/004_ai_daily_quota.sql`](supabase/migrations/004_ai_daily_quota.sql) — daily AI quota
+5. **SQL Editor** → run [`supabase/migrations/004_ai_daily_quota.sql`](supabase/migrations/004_ai_daily_quota.sql), then [`005_free_trial_quota.sql`](supabase/migrations/005_free_trial_quota.sql) — AI quota
 6. *(Optional)* **Authentication → Sign In / Providers → Email** → turn off *Confirm email* so new users can sign in right after signing up
 
 Open http://localhost:3000 and sign up or sign in.
 
 ### Deploy
 
-Import the repository in Vercel and set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `OPENAI_API_KEY` (optionally `OPENAI_MODEL`, `AI_DAILY_LIMIT`). In Supabase → **Authentication → URL Configuration**, set the Site URL to your Vercel domain and add `https://<your-domain>/auth/callback` to the redirect URLs.
+Import the repository in Vercel and set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `OPENAI_API_KEY` (optionally `OPENAI_MODEL`, `AI_FREE_LIMIT`, `AI_QUOTA_WINDOW_HOURS`, `AI_ADMIN_EMAILS`). In Supabase → **Authentication → URL Configuration**, set the Site URL to your Vercel domain and add `https://<your-domain>/auth/callback` to the redirect URLs.
 
 ## Project structure
 
@@ -176,7 +176,7 @@ supabase/             Schema and migrations
 - [x] AI agent that proposes tasks from transcripts
 - [x] Human review and transactional apply
 - [x] Kanban board with drag & drop
-- [x] Supabase Auth, per-user data, daily AI quota
+- [x] Supabase Auth, per-user data, AI quota
 - [x] Deployed on Vercel
 - [ ] Evaluation set: score extraction accuracy across sample transcripts and models
 - [ ] Audio upload with speech-to-text

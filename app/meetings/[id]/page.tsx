@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { ArrowLeft, CalendarDays, FileText, ListTodo, Pencil } from "lucide-react";
 import { remainingQuota } from "@/lib/agent/quota";
-import { getSupabase } from "@/lib/supabase/server";
+import { getCurrentUser, getSupabase } from "@/lib/supabase/server";
 import { formatDate, todayInMelbourne } from "@/lib/task-meta";
 import type { Meeting, Member, Task } from "@/lib/types";
 import { DeleteMeetingButton } from "@/components/meetings/delete-meeting-button";
@@ -20,6 +20,7 @@ export default async function MeetingDetailPage({
   await connection();
   const { id } = await params;
   const supabase = await getSupabase();
+  const user = await getCurrentUser();
 
   const [meetingRes, tasksRes, membersRes, quota] = await Promise.all([
     supabase.from("meetings").select("*").eq("id", id).maybeSingle(),
@@ -29,7 +30,7 @@ export default async function MeetingDetailPage({
       .eq("meeting_id", id)
       .order("created_at", { ascending: true }),
     supabase.from("members").select("id, name, email").order("name"),
-    remainingQuota(supabase),
+    remainingQuota(supabase, user?.email ?? null),
   ]);
 
   if (meetingRes.error || !meetingRes.data) notFound();

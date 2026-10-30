@@ -4,7 +4,7 @@
 
 **中文** | [English](README.en.md)
 
-**在线体验：** https://meeting-task.vercel.app （任意邮箱注册即可。每个账号的数据相互隔离，每天可以使用 10 次 AI 提取）
+**在线体验：** https://meeting-task.vercel.app （任意邮箱注册即可。每个账号的数据相互隔离，可以免费体验 1 次 AI 提取）
 
 [![CI](https://github.com/MARCHTOWNE/Meeting-Task/actions/workflows/ci.yml/badge.svg)](https://github.com/MARCHTOWNE/Meeting-Task/actions/workflows/ci.yml)
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-black)
@@ -23,7 +23,7 @@
 - **任务管理**：支持列表和**看板**两种视图。看板可以用鼠标或**键盘**拖动卡片，并且有乐观更新。任务可以新建、编辑和删除，逾期的任务会高亮显示，从会议中提取的任务可以跳回来源会议。
 - **会议和成员管理**：完整的增删改查。成员卡片会显示每个人手上待办、进行中、已完成的任务数量。
 - **账号系统**：基于 Supabase Auth 的注册和登录，每个用户只能看到自己的数据。
-- **每日 AI 额度**：每个账号每 24 小时最多提取 10 次（次数可以配置），开放注册也不会让 OpenAI 费用失控。
+- **AI 使用额度**：每个账号可以免费体验 1 次 AI 提取（次数、是否按时间段恢复都可以配置），指定的管理员账号不受限制。开放注册也不会让 OpenAI 费用失控。
 - 支持深色模式和响应式布局，组件符合无障碍规范。
 
 | 看板视图 | 深色模式 |
@@ -40,7 +40,7 @@ sequenceDiagram
     participant DB as PostgreSQL (RLS)
 
     用户->>App: 点击「开始提取」
-    App->>DB: claim_ai_extraction()：原子地扣减每日额度
+    App->>DB: claim_ai_extraction()：原子地扣减使用额度
     App->>LLM: 系统提示词 + 日历 + 会议记录 + 工具定义
     loop 最多 12 轮
         LLM->>App: 调用工具
@@ -103,7 +103,7 @@ flowchart LR
 **可靠性与成本**
 
 - **原子写入**：确认后的提议由数据库函数 `apply_task_proposals` 在同一个事务里写入，任何一条失败，整批都不会写入。数据先在 Server Action 里用 Zod 校验一次，再由外键和 check 约束兜底。
-- **不会被并发绕过的额度限制**：`claim_ai_extraction()` 在每个用户的 advisory lock 保护下完成"检查 + 记录"，同时点击多次也不会超额。使用记录对用户来说只能新增、不能修改或删除，无法从客户端重置额度。调用模型**之前**就先扣减额度，失败的调用也会计入。
+- **不会被并发绕过的额度限制**：`claim_ai_extraction()` 在每个用户的 advisory lock 保护下完成"检查 + 记录"（支持终身次数或按时间段计数），同时点击多次也不会超额。使用记录对用户来说只能新增、不能修改或删除，无法从客户端重置额度。调用模型**之前**就先扣减额度，失败的调用也会计入。
 - **选用够用且最便宜的模型**：`gpt-5-nano` 加低推理强度，一次完整提取约 0.002 美元。Agent 循环最多 12 轮，摘要长度也有校验。可以通过 `OPENAI_MODEL` 更换模型。
 - **可追溯**：每个由 AI 提取的任务都保存了它在会议原文中的出处（`source_quote`），随时可以核对 AI 的输出。
 
@@ -141,14 +141,14 @@ npm run dev
 2. **SQL Editor** → 运行 [`supabase/migrations/002_apply_task_proposals.sql`](supabase/migrations/002_apply_task_proposals.sql)：创建事务性的"确认写入"函数
 3. **Authentication → Users → Add user** → 创建你自己的账号，勾选 *Auto Confirm User*。已有的数据会归到这个账号下
 4. **SQL Editor** → 运行 [`supabase/migrations/003_auth_and_rls.sql`](supabase/migrations/003_auth_and_rls.sql)：按用户隔离数据，并启用 RLS 策略
-5. **SQL Editor** → 运行 [`supabase/migrations/004_ai_daily_quota.sql`](supabase/migrations/004_ai_daily_quota.sql)：创建每日 AI 额度
+5. **SQL Editor** → 依次运行 [`supabase/migrations/004_ai_daily_quota.sql`](supabase/migrations/004_ai_daily_quota.sql) 和 [`005_free_trial_quota.sql`](supabase/migrations/005_free_trial_quota.sql)：AI 使用额度
 6. （可选）**Authentication → Sign In / Providers → Email** → 关闭 *Confirm email*，新用户注册后无需邮件确认即可直接登录
 
 然后打开 http://localhost:3000 注册或登录。
 
 ### 部署
 
-在 Vercel 导入本仓库，配置环境变量 `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`、`OPENAI_API_KEY`（可选：`OPENAI_MODEL`、`AI_DAILY_LIMIT`）。再到 Supabase → **Authentication → URL Configuration**，把 Site URL 设为你的 Vercel 域名，并在 Redirect URLs 中加入 `https://<你的域名>/auth/callback`。
+在 Vercel 导入本仓库，配置环境变量 `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`、`OPENAI_API_KEY`（可选：`OPENAI_MODEL`、`AI_FREE_LIMIT`、`AI_QUOTA_WINDOW_HOURS`、`AI_ADMIN_EMAILS`）。再到 Supabase → **Authentication → URL Configuration**，把 Site URL 设为你的 Vercel 域名，并在 Redirect URLs 中加入 `https://<你的域名>/auth/callback`。
 
 ## 目录结构
 
@@ -176,7 +176,7 @@ supabase/             数据库结构和迁移脚本
 - [x] AI Agent 从会议记录中提议任务
 - [x] 人工确认，事务性写入
 - [x] 看板与拖拽
-- [x] Supabase Auth、按用户隔离数据、每日 AI 额度
+- [x] Supabase Auth、按用户隔离数据、AI 使用额度
 - [x] 部署到 Vercel
 - [ ] 评估集：用一批样例会议记录为提取准确率打分，并对比不同模型
 - [ ] 上传音频并自动转写

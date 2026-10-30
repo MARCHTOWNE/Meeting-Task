@@ -4,10 +4,10 @@ import { openai } from "@ai-sdk/openai";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { extractTasks } from "@/lib/agent/extract-tasks";
-import { claimQuota, dailyLimit } from "@/lib/agent/quota";
+import { claimQuota, quotaConfig } from "@/lib/agent/quota";
 import { supabaseDataSource } from "@/lib/agent/supabase-source";
 import type { ExtractionResult } from "@/lib/agent/types";
-import { getSupabase } from "@/lib/supabase/server";
+import { getCurrentUser, getSupabase } from "@/lib/supabase/server";
 
 /** 默认用最便宜的模型；可以在 .env.local 里用 OPENAI_MODEL 换成别的 */
 const DEFAULT_MODEL = "gpt-5-nano";
@@ -31,17 +31,21 @@ export async function extractTaskProposals(meetingId: string): Promise<ExtractRe
   if (error || !meeting) return { ok: false, error: "找不到这场会议" };
 
   // 先占用一次额度再调用模型：失败的调用也算一次，防止有人反复点击刷费用
+  const user = await getCurrentUser();
   let remaining: number | null;
   try {
-    remaining = await claimQuota(supabase);
+    remaining = await claimQuota(supabase, user?.email ?? null);
   } catch (e) {
     console.error("[claimQuota]", e);
-    return { ok: false, error: "无法检查今日额度，请确认已运行 supabase/migrations/004_ai_daily_quota.sql" };
+    return { ok: false, error: "无法检查使用额度，请确认已运行 supabase/migrations 里的 SQL" };
   }
   if (remaining === null) {
+    const { limit, windowHours } = quotaConfig();
     return {
       ok: false,
-      error: `今天的 AI 提取次数已用完（每 24 小时 ${dailyLimit()} 次），请稍后再试`,
+      error: windowHours
+        ? `AI 提取次数已用完（每 ${windowHours} 小时 ${limit} 次），请稍后再试`
+        : `免费体验次数已用完（每个账号 ${limit} 次）`,
       remaining: 0,
     };
   }
